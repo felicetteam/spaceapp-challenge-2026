@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://bsg88fdph5q8a"]
+
+[ext_resource type="SpriteFrames" uid="uid://3qbo1vmb0ijo" path="res://Personaje/sprite_frames_personaje.tres" id="1_dyh31"]
+[ext_resource type="Script" uid="uid://dpf75aq6fgsam" path="res://Personaje/personaje.gd" id="1_imvb3"]
+
+[node name="CharacterBody2D" type="CharacterBody2D" unique_id=1006636007]
+script = ExtResource("1_imvb3")
+
+[node name="Sprite_Casco" type="AnimatedSprite2D" parent="." unique_id=1644339486]
+z_index = 2
+sprite_frames = ExtResource("1_dyh31")
+animation = &"Casco"
+
+[node name="Sprite_Cabeza" type="AnimatedSprite2D" parent="." unique_id=1841676089]
+z_index = 3
+sprite_frames = ExtResource("1_dyh31")
+animation = &"Cabezas"
+
+[node name="Sprite_Brazo" type="AnimatedSprite2D" parent="." unique_id=699519334]
+z_index = 1
+sprite_frames = ExtResource("1_dyh31")
+animation = &"correr_brazo"
+frame_progress = 0.31175694
+
+[node name="Sprite_Cuerpo" type="AnimatedSprite2D" parent="." unique_id=929383964]
+texture_filter = 1
+sprite_frames = ExtResource("1_dyh31")
+animation = &"correr_base"
+frame_progress = 0.5501074
+
+[node name="CollisionPolygon2D" type="CollisionPolygon2D" parent="." unique_id=1969504758]
