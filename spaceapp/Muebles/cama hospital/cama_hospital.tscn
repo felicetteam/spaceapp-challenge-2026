@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://0e3ndnk638lg"]
+
+[ext_resource type="Script" uid="uid://c6spg6dbpbcaa" path="res://Muebles/cama hospital/cama_hospital.gd" id="1_cama"]
+[ext_resource type="Texture2D" uid="uid://bnf865tbpx884" path="res://assets/sprites/cama_hospital.png" id="2_png"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w4e62"]
+atlas = ExtResource("2_png")
+region = Rect2(0, 0, 16, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5ujjn"]
+atlas = ExtResource("2_png")
+region = Rect2(16, 0, 16, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_2tdgn"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_w4e62")
+}],
+"loop": 1,
+"name": &"cama",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5ujjn")
+}],
+"loop": 1,
+"name": &"sabana",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_deteccion"]
+size = Vector2(16, 40)
+
+[node name="cama_hospital" type="StaticBody2D" unique_id=107914212]
+script = ExtResource("1_cama")
+
+[node name="sabana" type="AnimatedSprite2D" parent="." unique_id=353065762]
+visible = false
+z_index = 3
+sprite_frames = SubResource("SpriteFrames_2tdgn")
+animation = &"sabana"
+
+[node name="cama" type="AnimatedSprite2D" parent="." unique_id=2057492150]
+sprite_frames = SubResource("SpriteFrames_2tdgn")
+animation = &"cama"
+
+[node name="Deteccion" type="Area2D" parent="." unique_id=1047126376]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Deteccion" unique_id=1532366474]
+position = Vector2(0, 4)
+shape = SubResource("RectangleShape2D_deteccion")

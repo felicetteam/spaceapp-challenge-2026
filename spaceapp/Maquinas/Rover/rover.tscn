@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cmghr31ad07kg"]
+
+[ext_resource type="Texture2D" uid="uid://cv6eoyyvr4eau" path="res://assets/sprites/Rover.png" id="1_ws2u7"]
+
+[node name="Rover" type="AnimatableBody2D" unique_id=1916147968]
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1358373174]
+texture = ExtResource("1_ws2u7")
