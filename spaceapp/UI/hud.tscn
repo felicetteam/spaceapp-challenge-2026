@@ -1,0 +1,12 @@
+[gd_scene format=3 uid="uid://cnagddqo3duos"]
+
+[ext_resource type="Script" uid="uid://cu7kert1683xu" path="res://UI/hud.gd" id="1_ne75i"]
+
+[node name="HUD" type="CanvasLayer" unique_id=1767131141]
+script = ExtResource("1_ne75i")
+
+[node name="ContenedorTripulacion" type="HBoxContainer" parent="." unique_id=1795852329]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 52.0
+offset_bottom = 52.0

@@ -35,3 +35,11 @@ frame_progress = 0.5501074
 [node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1827949784]
 position = Vector2(-0.5, 15)
 shape = SubResource("RectangleShape2D_qa2pe")
+
+[node name="Barra_Salud" type="ProgressBar" parent="." unique_id=751131160]
+z_index = 10
+offset_left = -12.0
+offset_top = -22.0
+offset_right = 12.0
+offset_bottom = -18.0
+show_percentage = false
