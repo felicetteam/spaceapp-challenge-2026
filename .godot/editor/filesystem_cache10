@@ -1,0 +1,9 @@
+78098b89c88a74ebe8c20117b8754620
+::res://::1794668721
+icon.svg::CompressedTexture2D::5745054300967709338::1794656170::1794656175::1::::<><><>0<>0<>8c25b45a4f0edce359ac13c31579f41f<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
+::res://Personaje/::1794658252
+Astronauta_spritesheet.png::CompressedTexture2D::5445942459727465016::1794657393::1794657395::1::::<><><>0<>0<>6e34ca7bdbe7b9fe58ddf870499c53b6<>res://.godot/imported/Astronauta_spritesheet.png-997bf80fce99ceb1d6b9df7ebaf085ea.ctex::
+demo_todos.gd::GDScript::2331320893279306656::1794658013::0::1::::<>Node2D<><>0<>0<><>::
+personaje.gd::GDScript::8224413138138068660::1794658010::0::1::::Personaje<>CharacterBody2D<><>0<>1<><>::
+personaje.tscn::PackedScene::3664268995605445922::1794658252::0::1::::<><><>0<>0<><>::uid://3qbo1vmb0ijo::::res://Personaje/sprite_frames_personaje.tres<>uid://dpf75aq6fgsam::::res://Personaje/personaje.gd
+sprite_frames_personaje.tres::SpriteFrames::1998404782632848248::1794658163::0::1::::<><><>0<>0<><>::uid://cjub42n3mp8q3::::res://Personaje/Astronauta_spritesheet.png
