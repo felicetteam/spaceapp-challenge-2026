@@ -1,50 +1,15 @@
 [gd_scene format=4 uid="uid://cp62uauomhfu1"]
 
+[ext_resource type="Script" uid="uid://deo35w86dwkno" path="res://Base/base.gd" id="1_0m7nb"]
 [ext_resource type="TileSet" uid="uid://csxo7kk1akqyb" path="res://tile_sets/base.tres" id="1_rpg24"]
-[ext_resource type="Script" uid="uid://dpf75aq6fgsam" path="res://Personaje/personaje.gd" id="1_ws5nf"]
-[ext_resource type="SpriteFrames" uid="uid://3qbo1vmb0ijo" path="res://Personaje/sprite_frames_personaje.tres" id="2_0m7nb"]
 [ext_resource type="PackedScene" uid="uid://0e3ndnk638lg" path="res://Muebles/cama hospital/cama_hospital.tscn" id="4_0m7nb"]
-
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_qa2pe"]
-size = Vector2(15, 2)
+[ext_resource type="PackedScene" uid="uid://bsg88fdph5q8a" path="res://Personaje/personaje.tscn" id="4_8k6vf"]
+[ext_resource type="PackedScene" uid="uid://cnagddqo3duos" path="res://UI/hud.tscn" id="4_77ap6"]
 
 [node name="base" type="Node2D" unique_id=339836169]
+script = ExtResource("1_0m7nb")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1225135573]
-
-[node name="CharacterBody2D" type="CharacterBody2D" parent="." unique_id=1006636007]
-position = Vector2(248, 17)
-up_direction = Vector2(0, 1)
-script = ExtResource("1_ws5nf")
-
-[node name="Sprite_Casco" type="AnimatedSprite2D" parent="CharacterBody2D" unique_id=1644339486]
-z_index = 2
-sprite_frames = ExtResource("2_0m7nb")
-animation = &"Casco"
-
-[node name="Sprite_Cabeza" type="AnimatedSprite2D" parent="CharacterBody2D" unique_id=1841676089]
-z_index = 3
-sprite_frames = ExtResource("2_0m7nb")
-animation = &"Cabezas"
-frame = 3
-
-[node name="Sprite_Brazo" type="AnimatedSprite2D" parent="CharacterBody2D" unique_id=699519334]
-z_index = 1
-sprite_frames = ExtResource("2_0m7nb")
-animation = &"correr_brazo"
-frame = 2
-frame_progress = 0.472213
-
-[node name="Sprite_Cuerpo" type="AnimatedSprite2D" parent="CharacterBody2D" unique_id=929383964]
-texture_filter = 1
-sprite_frames = ExtResource("2_0m7nb")
-animation = &"correr_base"
-frame = 2
-frame_progress = 0.38195086
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2D" unique_id=1827949784]
-position = Vector2(-0.5, 15)
-shape = SubResource("RectangleShape2D_qa2pe")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=1404671459]
 z_index = -1
@@ -56,3 +21,14 @@ position = Vector2(13, 37)
 
 [node name="cama_hospital2" parent="." unique_id=1643107742 instance=ExtResource("4_0m7nb")]
 position = Vector2(53, 36)
+
+[node name="HUD" parent="." unique_id=1767131141 instance=ExtResource("4_77ap6")]
+
+[node name="Juan" parent="." unique_id=1006636007 instance=ExtResource("4_8k6vf")]
+cabeza = 2
+
+[node name="Laika" parent="." unique_id=784882181 instance=ExtResource("4_8k6vf")]
+cabeza = 1
+
+[node name="Felicette" parent="." unique_id=1866042998 instance=ExtResource("4_8k6vf")]
+cabeza = 0

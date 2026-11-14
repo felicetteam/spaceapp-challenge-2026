@@ -49,7 +49,7 @@ const FACTOR_SALUD := {
 @onready var sprite_brazo: AnimatedSprite2D = $Sprite_Brazo
 @onready var sprite_cabeza: AnimatedSprite2D = $Sprite_Cabeza
 @onready var sprite_casco: AnimatedSprite2D = $Sprite_Casco
-@onready var barra_salud: ProgressBar = $BarraSalud
+@onready var barra_salud: ProgressBar = $Barra_Salud
 
 # Variables de estado vital (0 a 100)
 var salud: float = 100.0
