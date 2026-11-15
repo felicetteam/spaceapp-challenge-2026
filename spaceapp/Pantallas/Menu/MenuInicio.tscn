@@ -4,7 +4,8 @@
 [ext_resource type="Texture2D" uid="uid://cqmc526wjynr3" path="res://assets/img/TituloConLogo.png" id="2_qrhxr"]
 [ext_resource type="FontFile" uid="uid://cutlb65ivra8j" path="res://assets/fonts/squares.ttf" id="4_ghm1e"]
 [ext_resource type="Texture2D" uid="uid://cap1j3mqr0bo3" path="res://assets/img/SpaceApp.png" id="4_ynx6h"]
-[ext_resource type="Script" path="res://Pantallas/Menu/menu_inicio.gd" id="5_menu"]
+[ext_resource type="Script" uid="uid://bgppb213pvkea" path="res://Pantallas/Menu/menu_inicio.gd" id="5_menu"]
+[ext_resource type="AudioStream" uid="uid://d1qq8ra4fal11" path="res://assets/musica/menus_playlist.tres" id="6_ynx6h"]
 
 [node name="Menu" type="Control" unique_id=1033095452]
 layout_mode = 3
@@ -87,3 +88,7 @@ grow_horizontal = 0
 grow_vertical = 0
 texture = ExtResource("4_ynx6h")
 expand_mode = 3
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=1187860021]
+stream = ExtResource("6_ynx6h")
+autoplay = true

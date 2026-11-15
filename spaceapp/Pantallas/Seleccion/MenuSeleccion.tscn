@@ -1,9 +1,10 @@
 [gd_scene format=3 uid="uid://daam7ckgigvbh"]
 
 [ext_resource type="Texture2D" uid="uid://dtv25latdax20" path="res://assets/img/Fondopng.png" id="1_5fok4"]
-[ext_resource type="Script" path="res://Pantallas/Seleccion/menu_seleccion.gd" id="2_sel"]
+[ext_resource type="Script" uid="uid://c1q1xyilh6fqk" path="res://Pantallas/Seleccion/menu_seleccion.gd" id="2_sel"]
+[ext_resource type="AudioStream" uid="uid://d1qq8ra4fal11" path="res://assets/musica/menus_playlist.tres" id="3_cr340"]
 
-[node name="MenuSeleccion" type="Control"]
+[node name="MenuSeleccion" type="Control" unique_id=1681346609]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +13,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_sel")
 
-[node name="Fondo" type="TextureRect" parent="."]
+[node name="Fondo" type="TextureRect" parent="." unique_id=982563523]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -23,3 +24,7 @@ mouse_filter = 2
 texture = ExtResource("1_5fok4")
 expand_mode = 1
 stretch_mode = 6
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="." unique_id=2132954544]
+stream = ExtResource("3_cr340")
+autoplay = true
