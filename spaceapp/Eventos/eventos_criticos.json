@@ -98,7 +98,8 @@
 		{
 			"id": "falla_energia",
 			"titulo": "Falla del sistema de energía",
-			"descripcion": "Algo falla en los paneles o las baterías y la base pierde energía muy rápido. Sin energía baja el oxígeno y las máquinas trabajan más lento.",
+			"reparar": "fotovoltaica",
+			"descripcion": "Algo falla en los paneles: quedan en estado crítico y la base pierde energía muy rápido. Sin energía baja el oxígeno y las máquinas se apagan. El problema se soluciona recién cuando los reparen hasta verde.",
 			"consejo": "Hay que elegir: apagar una máquina que no es urgente para ahorrar energía, o no apagar nada y mandar a alguien a arreglar la falla mientras la energía baja.",
 			"al_iniciar": [
 				{
@@ -126,16 +127,14 @@
 				"estructura": "invernadero"
 			},
 			"opcion_b": {
-				"texto": "No apagar nada: mandar a alguien a arreglar la falla",
+				"texto": "Mandar a alguien a arreglar los paneles ya",
+				"reparar": true,
 				"gana": {
 					"recurso": "energia",
 					"cantidad": 10
 				},
 				"pierde": {
-					"recurso": "elegir",
-					"duracion": 180,
-					"modo": "ocupado",
-					"motivo": "arreglando la energía"
+					"recurso": "elegir"
 				}
 			},
 			"dato_nasa": "En 2018 una tormenta de polvo cubrió todo Marte y tapó el Sol. El rover Opportunity, que funciona con paneles solares, dejó de hacer ciencia para ahorrar la poca energía que le quedaba y quedó en silencio el 10 de junio de 2018. Curiosity, que usa un generador nuclear en vez de paneles, siguió trabajando.",
@@ -144,8 +143,11 @@
 		{
 			"id": "nueva_exploracion",
 			"titulo": "Nueva exploración disponible",
+			"exploracion": true,
+			"salud_minima": 60,
+			"costo_energia": 40,
 			"descripcion": "¡Apareció un lugar nuevo para investigar! Un astronauta tiene que salir con el rover. Cada exploración desbloquea una investigación nueva para el escritorio.",
-			"consejo": "Mirá qué pide la exploración: terreno difícil pide Trabajo, ambiente hostil pide Salud y análisis pide Investigación. Elegí un astronauta con buena salud, revisá el rover y salí. Las exploraciones se hacen de a una.",
+			"consejo": "Elegí un astronauta con buena salud y energía: explorar cansa. Revisá el rover antes de salir. Las exploraciones se hacen de a una.",
 			"estructura": "rover",
 			"opcion_a": {
 				"texto": "Salir a explorar",
@@ -166,62 +168,35 @@
 					}
 				]
 			},
-			"opcion_b": {
-				"texto": "Posponer la exploración",
-				"gana": {
-					"recurso": "nada"
-				},
-				"pierde": {
-					"recurso": "posponer",
-					"segundos": 300
-				}
-			},
 			"dato_nasa": "El rover Curiosity aterrizó en Marte en agosto de 2012 y estaba pensado para una misión de 2 años, pero sigue explorando. (Dato a confirmar en la página de la misión Curiosity de la NASA.)",
 			"fuente": "Por confirmar en science.nasa.gov (misión Curiosity)"
 		},
 		{
 			"id": "rover_mantenimiento",
 			"titulo": "El rover necesita mantenimiento",
-			"descripcion": "Cada salida desgasta al rover. Si el desgaste llega muy lejos se rompe, y arreglarlo lleva todo el día: ese día no se puede explorar.",
+			"reparar": "rover",
+			"descripcion": "Cada salida desgasta al rover y ahora está en estado crítico. Si se rompe del todo no se puede explorar. El problema se soluciona recién cuando lo reparen hasta verde.",
 			"consejo": "Hacé mantenimiento todos los días. Antes de salir mirá la barra de desgaste: si está alta, arreglá primero y explorá después. Con el rover gastado conviene evitar el terreno difícil.",
-			"al_iniciar": [
-				{
-					"recurso": "mantenimiento:rover",
-					"cantidad": -30
-				}
-			],
 			"estructura": "rover",
 			"opcion_a": {
 				"texto": "Mandar a alguien a arreglarlo ahora",
+				"reparar": true,
 				"gana": {
-					"recurso": "mantenimiento:rover",
-					"cantidad": 50
+					"recurso": "nada"
 				},
 				"pierde": {
-					"recurso": "elegir",
-					"duracion": 300,
-					"modo": "ocupado",
-					"motivo": "arreglando el rover"
+					"recurso": "elegir"
 				}
 			},
 			"opcion_b": {
-				"texto": "Explorar igual, con cuidado",
+				"texto": "Dejarlo para más tarde",
+				"estructura": "",
 				"gana": {
-					"recurso": "desbloqueo",
-					"cantidad": 1
+					"recurso": "nada"
 				},
-				"pierde": [
-					{
-						"recurso": "elegir",
-						"duracion": 240,
-						"modo": "fuera",
-						"motivo": "explorando"
-					},
-					{
-						"recurso": "mantenimiento:rover",
-						"cantidad": 30
-					}
-				]
+				"pierde": {
+					"recurso": "nada"
+				}
 			},
 			"dato_nasa": "Las ruedas de Curiosity son de aluminio y su piel es la mitad de gruesa que una moneda de 10 centavos de dólar. Desde 2013 tienen agujeros por las rocas filosas. Para cuidarlas, la NASA elige caminos con menos piedras, las revisa con fotos y en 2017 le mandó un programa nuevo que controla la velocidad de cada rueda.",
 			"fuente": "space.com/36161-curiosity-mars-rover-wheel-breaks-found.html; csmonitor.com/Science/2017/0324/What-can-NASA-do-to-save-Curiosity-s-wheels; digitaltrends.com/space/a-nasa-mars-rover-has-a-giant-hole-in-one-of-its-wheels"

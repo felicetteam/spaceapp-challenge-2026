@@ -11,7 +11,7 @@ script = ExtResource("2_cama")
 rotacion_personaje_grados = -90.0
 posicion_cabeza = Vector2(-11, -3)
 rotacion_cabeza_grados = -90.0
-voltear_cabeza_v = true
+voltear_cabeza_h = true
 
 [node name="cama" type="AnimatedSprite2D" parent="." unique_id=1281566447]
 sprite_frames = ExtResource("1_kkuy2")
