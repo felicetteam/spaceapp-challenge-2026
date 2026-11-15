@@ -65,6 +65,25 @@ const MECANICAS := [
 ]
 
 
+## Astronautas (Información > Base > Astronautas), en el orden en que se muestran. "nombre" es
+## el de Personaje.NOMBRES; sus bonos y penalidades salen de Personaje/afinidades.gd.
+const ASTRONAUTAS := [
+	{"nombre": "Juan", "titulo": "Juan – El astronauta argentino",
+		"texto": "¡Argentina también tuvo un astronauta muy especial! El 23 de diciembre de 1969, un mono capuchino llamado Juan viajó en un cohete desde Chamical, La Rioja. Su aventura duró unos ocho minutos y llegó aproximadamente a los 90 kilómetros de altura. ¡Y lo mejor es que regresó sano y salvo!",
+		"dato": "Después de su viaje, Juan vivió durante más de dos años en el zoológico de Córdoba.",
+		"fuente": "Diario Uno (diariouno.com.ar, nota «Hace 50 años»)"},
+	{"nombre": "Laika", "titulo": "Laika – La pionera del espacio",
+		"texto": "¡Laika hizo historia! El 3 de noviembre de 1957 viajó a bordo del Sputnik 2 y se convirtió en el primer animal en orbitar la Tierra. Aunque antes otros animales ya habían realizado viajes espaciales más cortos, ella fue la primera en dar una vuelta alrededor de nuestro planeta.",
+		"dato": "Antes de Laika, en 1947, unas moscas de la fruta viajaron al espacio.",
+		"fuente": "NASA History, «60 Years Ago: The First Animal in Orbit» (nasa.gov/history/60-years-ago-the-first-animal-in-orbit/)"},
+	{"nombre": "Feli", "titulo": "Félicette – La gata astronauta",
+		"texto": "¡Una gata también llegó al espacio! Félicette era una gata de las calles de París que participó en una misión espacial francesa el 18 de octubre de 1963. Su cápsula descendió en paracaídas y ella regresó sana y salva. Hasta hoy, es la única gata que ha viajado al espacio y vuelto con vida.",
+		"dato": "Su viaje fue suborbital, es decir, llegó al espacio, pero no dio una vuelta completa alrededor de la Tierra.",
+		"fuente": "Guinness World Records (guinnessworldrecords.com/world-records/779823-first-cat-in-space)"},
+	{"nombre": "Andy", "titulo": "Andy – El astronauta misterioso",
+		"texto": "Nadie sabe muy bien de dónde vino Andy. Es un astronauta misterioso de desempeño promedio: no se destaca en nada, pero tampoco tiene puntos débiles. Siempre cumple."},
+]
+
 ## Texto de una mecánica por su id ("" si no existe).
 static func texto(id: String) -> String:
 	for m in MECANICAS:

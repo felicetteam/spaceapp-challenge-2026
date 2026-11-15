@@ -213,6 +213,10 @@ var _estilo_relleno: StyleBoxFlat
 var _reproductor_moneda: AudioStreamPlayer2D
 var _cartel: Label
 var _tween_cartel: Tween
+## Globo de diálogo de las charlas (ver Personaje/charlas.gd).
+var _dialogo: Label
+var _tween_dialogo: Tween
+const Charlas := preload("res://Personaje/charlas.gd")
 
 func _ready() -> void:
 	_aplicar_cabeza()
@@ -952,7 +956,7 @@ func _resolver_encuentro(otro: Personaje) -> bool:
 	var cedo_yo := randi() % 2 == 0
 	var perdedor: Personaje = self if cedo_yo else otro
 	var ganador: Personaje = otro if cedo_yo else self
-	_tirar_moneda(perdedor)
+	_charlar_con(otro)
 	_ignorar(otro, 2.0)
 	otro._ignorar(self, 2.0)
 
@@ -1088,10 +1092,37 @@ func _terminar_desvio() -> void:
 		elif otro._desvio == Desvio.CEDIENDO or otro._desvio == Desvio.CEDIDO:
 			otro._retomar()
 
-func _tirar_moneda(perdedor: Personaje) -> void:
-	if _reproductor_moneda != null and sonido_moneda != null:
-		_reproductor_moneda.play()
-	mostrar_cartel("Moneda: cede %s" % perdedor.obtener_nombre())
+## Al cruzarse: uno (al azar) le cuenta un dato curioso de Marte al otro y, unos segundos
+## después, el otro responde asombrado. Hay una espera entre charlas para que no hablen siempre.
+func _charlar_con(otro: Personaje) -> void:
+	if not Charlas.puede_charlar():
+		return
+	var habla: Personaje = self if randi() % 2 == 0 else otro
+	var escucha: Personaje = otro if habla == self else self
+	habla.decir(Charlas.dato_al_azar(), Charlas.DURACION_DATO)
+	get_tree().create_timer(Charlas.DEMORA_RESPUESTA).timeout.connect(func():
+		if is_instance_valid(escucha) and escucha.visible and not escucha.desmayado:
+			escucha.decir(Charlas.respuesta_al_azar(), Charlas.DURACION_RESPUESTA))
+
+
+## Muestra un globo de diálogo sobre la cabeza y lo anota en el historial de charlas del HUD.
+func decir(texto: String, segundos := 4.0) -> void:
+	if _dialogo == null:
+		return
+	_dialogo.text = texto
+	_dialogo.visible = true
+	_dialogo.modulate.a = 1.0
+	_dialogo.reset_size()
+	_dialogo.position = Vector2(-_dialogo.size.x * 0.5, -34.0 - _dialogo.size.y)
+	if _tween_dialogo != null:
+		_tween_dialogo.kill()
+	_tween_dialogo = create_tween()
+	_tween_dialogo.tween_interval(segundos)
+	_tween_dialogo.tween_property(_dialogo, "modulate:a", 0.0, 0.4)
+	_tween_dialogo.tween_callback(func(): _dialogo.visible = false)
+	var hud := get_tree().current_scene.get_node_or_null("HUD") if get_tree().current_scene != null else null
+	if hud != null and hud.has_method("agregar_charla"):
+		hud.agregar_charla(obtener_nombre(), texto)
 
 ## Muestra un texto corto sobre la cabeza durante un momento.
 func mostrar_cartel(texto: String, segundos := 1.4) -> void:
@@ -1123,6 +1154,28 @@ func _crear_cartel_y_sonido() -> void:
 	_cartel.size = Vector2(90, 12)
 	_cartel.position = Vector2(-45, -36)
 	add_child(_cartel)
+
+	# Globo de diálogo: fondo blanco con borde, texto oscuro, ancho fijo y varias líneas
+	_dialogo = Label.new()
+	_dialogo.visible = false
+	_dialogo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dialogo.z_index = 25
+	_dialogo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dialogo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dialogo.custom_minimum_size = Vector2(110, 0)
+	_dialogo.add_theme_font_size_override("font_size", 7)
+	_dialogo.add_theme_color_override("font_color", Color(0.1, 0.11, 0.16))
+	var fondo := StyleBoxFlat.new()
+	fondo.bg_color = Color(1, 1, 1, 0.96)
+	fondo.border_color = Color(0.15, 0.17, 0.22)
+	fondo.set_border_width_all(1)
+	fondo.set_corner_radius_all(4)
+	fondo.content_margin_left = 4
+	fondo.content_margin_right = 4
+	fondo.content_margin_top = 2
+	fondo.content_margin_bottom = 2
+	_dialogo.add_theme_stylebox_override("normal", fondo)
+	add_child(_dialogo)
 
 # --- Salud -------------------------------------------------------------------
 
@@ -1160,6 +1213,9 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 			sueno = clampf(sueno + ritmo_cansancio() * factor_afin * mult_o2 * aj.sueno * delta, 0.0, 100.0)
 	if durmiendo:
 		dano_ambiental = maxf(0.0, dano_ambiental - 2.5 * delta)
+		# Durmiendo el hambre sigue avanzando, pero a la mitad de velocidad
+		if not desmayado and _t_satisfecho <= 0.0:
+			hambre = clampf(hambre + gasto_base * 0.5 * aj.hambre, 0.0, 100.0)
 
 	# Llegó al 100 de energía o de comida: un rato sin que baje
 	var era_feliz := esta_feliz()
@@ -1561,7 +1617,7 @@ func _sacar_de_la_luz() -> void:
 	seguidor.ancla = self
 	seguidor.name = "Textos_" + String(name)
 	capa.add_child(seguidor)
-	for n in [_globo, _cartel]:
+	for n in [_globo, _cartel, _dialogo]:
 		if n != null and n.get_parent() == self:
 			n.reparent(seguidor, false)  # mantiene su posición relativa a la cabeza
 	seguidor.seguir()

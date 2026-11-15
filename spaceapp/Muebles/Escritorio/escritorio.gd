@@ -87,10 +87,7 @@ func contiene_punto(p: Vector2) -> bool:
 
 
 func trabajar(delta: float) -> void:
-	if not _interfaz_abierta and ocupante_silla != null:
-		_interfaz_abierta = true
-		interfaz_solicitada.emit(self, ocupante_silla)
-
+	# (La terminal ya no se abre sola al sentarse: la compu aparece al abrir Información)
 	if funcionando() and _desbloqueada():
 		var diario := _diario()
 		var cantidad: float = progreso_por_segundo * delta * Ajustes.actual().trabajo_de(tipo_ajuste())

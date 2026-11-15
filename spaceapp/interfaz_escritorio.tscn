@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cu2j6u8tjhl57"]
 
-[ext_resource type="Texture2D" uid="uid://c2bkx34mx80h6" path="res://Muebles/Escritorio/compu.png" id="1_2j0k4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/compu.png" id="1_2j0k4"]
 [ext_resource type="Script" uid="uid://2p4e6he4kc2q" path="res://interfaz_escritorio.gd" id="1_rcq1x"]
 
 [node name="InterfazEscritorio" type="Control" unique_id=339074664]

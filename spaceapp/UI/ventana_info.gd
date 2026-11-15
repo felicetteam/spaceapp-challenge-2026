@@ -1,14 +1,29 @@
 extends Control
 ## Ventana de Información (botón junto a pausa/play). Tiene dos carpetas:
-## - Base: a la izquierda "Máquinas" y "Mecánicas"; a la derecha una grilla con el dibujo de
-##   cada máquina o mueble (o solo el nombre). Al tocar uno se ve su explicación del tutorial.
+## - Base: a la izquierda "Máquinas", "Mecánicas" y "Astronautas"; a la derecha una grilla con
+##   el dibujo de cada uno (o solo el nombre). Al tocar uno se ve su explicación; los astronautas
+##   muestran su historia y sus bonos y penalidades (como en la selección).
 ## - Diario: a la izquierda las investigaciones de la partida (??? si todavía no se
 ##   desbloquearon); a la derecha la elegida, con su barra de progreso, lo que ya se descubrió
 ##   y, al completarla, el reporte.
 ## El juego no se pausa (así se ve avanzar la investigación). Todas las pantallas se cierran
 ## con "Cerrar" (o Esc).
+## Al abrirla, primero aparece la compu (assets/sprites/compu.png): la cámara se acerca despacio
+## a la pantalla, se ve "Cargando..." y a los DURACION_INTRO segundos aparece la ventana.
+## Un clic durante la animación la saltea.
 
 const TextosAyuda := preload("res://Base/textos_ayuda.gd")
+const RUTA_COMPU := "res://assets/sprites/compu.png"
+## Parte negra (pantalla) de la compu, en fracciones de la imagen.
+const PANTALLA_COMPU := Rect2(0.174, 0.109, 0.654, 0.396)
+const DURACION_INTRO := 5.0
+const DURACION_ZOOM := 1.8
+var _intro: Control = null
+var _panel: Control = null
+var _t_intro := 0.0
+var _lbl_cargando: Label
+var _inicio_ms := Time.get_ticks_msec()
+const CUADROS_PERSONAJE := preload("res://Personaje/sprite_frames_personaje.tres")
 
 var diario: Node = null
 
@@ -37,6 +52,7 @@ func _ready() -> void:
 	add_child(fondo)
 
 	var panel := PanelContainer.new()
+	_panel = panel
 	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	panel.offset_left = 70
 	panel.offset_right = -70
@@ -75,6 +91,93 @@ func _ready() -> void:
 
 	_juntar_texturas()
 	_mostrar_carpetas()
+	_empezar_intro()
+
+
+# --- Animación de entrada (la compu) ----------------------------------------------
+
+func _empezar_intro() -> void:
+	var tex := _imagen(RUTA_COMPU)
+	if tex == null:
+		return  # sin la imagen, directo a la ventana
+	_panel.visible = false
+	_intro = Control.new()
+	_intro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_intro.mouse_filter = Control.MOUSE_FILTER_STOP
+	_intro.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed:
+			_terminar_intro())
+	add_child(_intro)
+	var negro := ColorRect.new()
+	negro.color = Color(0, 0, 0, 0.85)
+	negro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	negro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_intro.add_child(negro)
+
+	# La compu, entera y centrada
+	var vista := get_viewport_rect().size
+	var tam_img := tex.get_size()
+	var escala0 := minf(vista.x * 0.8 / tam_img.x, vista.y * 0.9 / tam_img.y)
+	var tam := tam_img * escala0
+	var compu := TextureRect.new()
+	compu.texture = tex
+	compu.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	compu.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	compu.stretch_mode = TextureRect.STRETCH_SCALE
+	compu.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	compu.size = tam
+	compu.position = (vista - tam) * 0.5
+	compu.modulate.a = 0.0
+	_intro.add_child(compu)
+
+	# Zoom lento hacia la pantalla negra: crece alrededor del centro de la pantalla hasta
+	# llenar la vista, y ese centro se mueve al centro de la vista
+	var pantalla := Rect2(PANTALLA_COMPU.position * tam, PANTALLA_COMPU.size * tam)
+	var centro := pantalla.get_center()
+	compu.pivot_offset = centro
+	# Sin llenar del todo la vista: queda un poco del borde de la compu alrededor
+	var escala_final := minf(vista.x / pantalla.size.x, vista.y / pantalla.size.y) * 0.82
+	var pos_final := compu.position + (vista * 0.5 - (compu.position + centro))
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)  # también con el juego en pausa o acelerado
+	tw.tween_property(compu, "modulate:a", 1.0, 0.4)
+	tw.tween_interval(0.3)
+	tw.tween_property(compu, "scale", Vector2.ONE * escala_final, DURACION_ZOOM) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_property(compu, "position", pos_final, DURACION_ZOOM) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+	# "Cargando..." en la pantalla, cuando ya está cerca
+	_lbl_cargando = Label.new()
+	_lbl_cargando.text = "Cargando"
+	_lbl_cargando.add_theme_font_size_override("font_size", 28)
+	_lbl_cargando.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
+	_lbl_cargando.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_lbl_cargando.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_lbl_cargando.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_lbl_cargando.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_lbl_cargando.visible = false
+	_intro.add_child(_lbl_cargando)
+	_inicio_ms = Time.get_ticks_msec()
+
+
+func _actualizar_intro() -> void:
+	if _intro == null:
+		return
+	_t_intro = (Time.get_ticks_msec() - _inicio_ms) / 1000.0
+	if _t_intro >= 0.7 + DURACION_ZOOM * 0.85:
+		_lbl_cargando.visible = true
+		_lbl_cargando.text = "Cargando" + ".".repeat(1 + int(_t_intro * 3.0) % 3)
+	if _t_intro >= DURACION_INTRO:
+		_terminar_intro()
+
+
+func _terminar_intro() -> void:
+	if _intro == null:
+		return
+	_intro.queue_free()
+	_intro = null
+	_panel.visible = true
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -84,6 +187,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	_actualizar_intro()
 	if not _en_diario or diario == null:
 		return
 	_t_refresco -= delta
@@ -162,7 +266,7 @@ func _mostrar_base(seccion: String) -> void:
 	var cols := _dos_columnas()
 	var izq: VBoxContainer = cols[0]
 	var der: PanelContainer = cols[1]
-	for datos in [["maquinas", "Máquinas"], ["mecanicas", "Mecánicas"]]:
+	for datos in [["maquinas", "Máquinas"], ["mecanicas", "Mecánicas"], ["astronautas", "Astronautas"]]:
 		var b := _boton(datos[1], Vector2(0, 54))
 		b.add_theme_font_size_override("font_size", 16)
 		b.toggle_mode = true
@@ -178,7 +282,12 @@ func _mostrar_base(seccion: String) -> void:
 	grilla.add_theme_constant_override("h_separation", 8)
 	grilla.add_theme_constant_override("v_separation", 8)
 	scroll.add_child(grilla)
-	for item in (_items_maquinas() if seccion == "maquinas" else _items_mecanicas()):
+	var items: Array = _items_mecanicas()
+	if seccion == "maquinas":
+		items = _items_maquinas()
+	elif seccion == "astronautas":
+		items = _items_astronautas()
+	for item in items:
 		var b := _boton(item["titulo"], Vector2(0, 104))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -196,11 +305,16 @@ func _mostrar_base(seccion: String) -> void:
 
 func _mostrar_detalle(item: Dictionary, seccion: String) -> void:
 	_limpiar("Base · " + String(item["titulo"]), _mostrar_base.bind(seccion))
+	# Con scroll por si el texto es largo (por ejemplo, la historia de un astronauta)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_cuerpo.add_child(scroll)
 	var centro := CenterContainer.new()
-	_cuerpo.add_child(centro)
+	centro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(centro)
 	var vbox := VBoxContainer.new()
-	vbox.custom_minimum_size = Vector2(560, 0)
-	vbox.add_theme_constant_override("separation", 14)
+	vbox.custom_minimum_size = Vector2(620, 0)
+	vbox.add_theme_constant_override("separation", 12)
 	centro.add_child(vbox)
 	var tex: Texture2D = item.get("textura")
 	if tex != null:
@@ -217,6 +331,24 @@ func _mostrar_detalle(item: Dictionary, seccion: String) -> void:
 	var texto := _label(String(item["texto"]), 15, Color.WHITE)
 	texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(texto)
+	if item.has("dato"):
+		var dato := _label("Dato curioso: " + String(item["dato"]), 14, Color(0.6, 0.85, 1.0))
+		dato.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(dato)
+	if item.has("bonos"):
+		var bonos: PackedStringArray = item["bonos"]
+		var penalidades: PackedStringArray = item["penalidades"]
+		if bonos.is_empty() and penalidades.is_empty():
+			vbox.add_child(_parrafo("Estadísticamente neutral: sin bonos ni penalidades.", Color(0.85, 0.87, 0.92)))
+		else:
+			vbox.add_child(_parrafo("Bonos: " + (", ".join(bonos) if not bonos.is_empty() else "ninguno"),
+					Color(0.55, 1.0, 0.6)))
+			vbox.add_child(_parrafo("Penalidades: " + (", ".join(penalidades) if not penalidades.is_empty() else "ninguna"),
+					Color(1.0, 0.6, 0.55)))
+	if item.has("fuente"):
+		var fuente := _label("Fuente: " + String(item["fuente"]), 11, Color(0.65, 0.68, 0.75))
+		fuente.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(fuente)
 
 
 func _mostrar_diario(seleccion: int) -> void:
@@ -357,6 +489,29 @@ func _items_mecanicas() -> Array:
 		lista.append({"titulo": m["titulo"], "texto": m["texto"],
 				"textura": _texturas.get(String(m.get("icono", "")))})
 	return lista
+
+
+func _items_astronautas() -> Array:
+	var lista: Array = []
+	for a in TextosAyuda.ASTRONAUTAS:
+		var nombre := String(a["nombre"])
+		var item: Dictionary = a.duplicate()
+		item.merge(Afinidades.describir(nombre))
+		item["textura"] = _textura_cabeza(nombre)
+		lista.append(item)
+	return lista
+
+
+## Cabeza del astronauta (cuadro de la animación "Cabezas", en el orden de Personaje.Cabeza).
+func _textura_cabeza(nombre: String) -> Texture2D:
+	var indice := -1
+	for c in Personaje.NOMBRES:
+		if Personaje.NOMBRES[c] == nombre:
+			indice = int(c)
+	if indice < 0 or not CUADROS_PERSONAJE.has_animation(&"Cabezas") \
+			or indice >= CUADROS_PERSONAJE.get_frame_count(&"Cabezas"):
+		return null
+	return CUADROS_PERSONAJE.get_frame_texture(&"Cabezas", indice)
 
 
 ## Busca en el mapa una máquina o mueble de cada tipo para usar su dibujo.

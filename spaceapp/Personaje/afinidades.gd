@@ -23,3 +23,25 @@ const TABLA := {
 static func de(nombre: String, tipo: String) -> float:
 	var fila: Dictionary = TABLA.get(nombre, {})
 	return float(fila.get(tipo, 1.0))
+
+
+## Bonos y penalidades en texto ("+25% velocidad de investigación"...), para la selección de
+## tripulación y la ventana de Información. Devuelve { "bonos": [...], "penalidades": [...] }.
+static func describir(nombre: String) -> Dictionary:
+	var bonos := PackedStringArray()
+	var penalidades := PackedStringArray()
+	var salud := de(nombre, "salud")
+	# La tabla dice por cuánto se divide cada cosa: menos de 1 = bono, más de 1 = penalidad.
+	# Salud: el gasto de comida y energía queda multiplicado por el valor
+	if salud < 1.0:
+		bonos.append("Gasta %d%% menos comida y energía" % roundi((1.0 - salud) * 100.0))
+	elif salud > 1.0:
+		penalidades.append("Gasta %d%% más comida y energía" % roundi((salud - 1.0) * 100.0))
+	# Trabajo e investigación: la velocidad queda dividida por el valor
+	for datos in [["trabajo", "velocidad de trabajo y reparación"], ["investigacion", "velocidad de investigación"]]:
+		var efecto: float = 1.0 / maxf(de(nombre, datos[0]), 0.01)
+		if efecto > 1.0:
+			bonos.append("+%d%% %s" % [roundi((efecto - 1.0) * 100.0), datos[1]])
+		elif efecto < 1.0:
+			penalidades.append("−%d%% %s" % [roundi((1.0 - efecto) * 100.0), datos[1]])
+	return {"bonos": bonos, "penalidades": penalidades}

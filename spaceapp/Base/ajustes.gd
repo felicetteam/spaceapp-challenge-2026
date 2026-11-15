@@ -42,7 +42,7 @@ extends Resource
 
 @export_group("Velocidad de trabajo")
 ## Multiplica el trabajo en todas las máquinas (se combina con el de cada una).
-@export var velocidad_trabajo := 0.15
+@export var velocidad_trabajo := 0.35
 ## Reparación de cada tipo de máquina.
 @export var trabajo_fotovoltaica := 1.0
 @export var trabajo_comunicaciones := 1.5
@@ -51,7 +51,7 @@ extends Resource
 @export var trabajo_escudo := 1.0
 @export var trabajo_rover := 1.0
 ## Progreso de investigación en el escritorio.
-@export var trabajo_escritorio := 1.0
+@export var trabajo_escritorio := 3.0
 ## Cualquier otra máquina que no sea de los tipos de arriba.
 @export var trabajo_otras := 1.0
 ## Trabajo en equipo: por cada astronauta adicional reparando la misma máquina, la reparación

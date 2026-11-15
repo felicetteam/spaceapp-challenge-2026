@@ -51,7 +51,6 @@ extends Node2D
 @onready var hud: CanvasLayer = $HUD
 @onready var tilemap: TileMapLayer = $TileMapLayer
 @onready var camara: Camera2D = $Camera2D
-@onready var interfaz_escritorio: InterfazEscritorio = $CanvasLayer/InterfazEscritorio
 @onready var escritorio: Escritorio = $Escritorio
 
 var tripulacion: Array[Personaje] = []
@@ -163,9 +162,6 @@ func _ready() -> void:
 	for _i in 3:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	tutorial.iniciar()
-	if escritorio and interfaz_escritorio:
-		escritorio.interfaz_solicitada.connect(interfaz_escritorio.abrir)
 	tutorial.iniciar()
 
 ## Los astronautas elegidos en la pantalla de selección reemplazan a los de la escena

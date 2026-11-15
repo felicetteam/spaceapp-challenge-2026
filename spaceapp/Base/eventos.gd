@@ -178,10 +178,23 @@ func ocupado() -> bool:
 
 ## true mientras el último evento sigue en curso (ventana, caminata, trabajo, duración o
 ## astronautas ocupados por él). Mientras tanto no corre el tiempo hasta el próximo.
+## Las exploraciones con el rover no cuentan: mientras alguien explora siguen saliendo eventos
+## (salvo los que reparan el rover, que esperan a que vuelva).
 func en_curso() -> bool:
-	return _abierto or not _pendiente.is_empty() or not _trabajos.is_empty() \
-			or not _activos.is_empty() or not _retirados.is_empty() or not _reparaciones.is_empty() \
-			or _rovers_volviendo > 0
+	if _abierto or not _pendiente.is_empty() or not _trabajos.is_empty() \
+			or not _activos.is_empty() or not _reparaciones.is_empty():
+		return true
+	for r in _retirados:
+		if not r.has("mision") and not r.has("rover"):
+			return true
+	return false
+
+
+## El evento no puede salir ahora (reparar el rover mientras está explorando).
+func _no_puede_salir(ev: Dictionary) -> bool:
+	if _alguien_explorando() and _normalizar(String(ev.get("reparar", ""))) == "rover":
+		return true
+	return false
 
 
 func _process(delta: float) -> void:
@@ -244,6 +257,8 @@ func lanzar_aleatorio() -> void:
 		var ev: Dictionary = _eventos[_bolsa.pop_back()]
 		if bool(ev.get("exploracion", false)) and _exploraciones_iniciadas:
 			continue  # (quedó en la bolsa de antes de empezar la cadena de exploraciones)
+		if _no_puede_salir(ev):
+			continue  # (reparar el rover con el rover afuera: sale en otra vuelta)
 		lanzar(ev)
 		return
 

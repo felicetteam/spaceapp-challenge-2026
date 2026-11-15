@@ -58,9 +58,16 @@ var _boton_pausa: Button
 var _boton_play: Button
 var _lbl_velocidad: Label
 var _boton_exploracion: Button
+# Historial de charlas entre astronautas (los últimos MAX_CHARLAS mensajes)
+const MAX_CHARLAS := 10
+var _panel_charlas: PanelContainer
+var _scroll_charlas: ScrollContainer
+var _lista_charlas: VBoxContainer
 ## Diario de la partida (lo asigna base.gd): lo muestra la ventana de Información.
 var diario: Node = null
 const VentanaInfo := preload("res://UI/ventana_info.gd")
+## Muestra los botones de prueba (desbloquear investigación, +25% de progreso).
+const MOSTRAR_DEBUG := true
 var _ventana_info: Control = null
 
 func _ready() -> void:
@@ -131,6 +138,28 @@ func _ready() -> void:
 	contenedor_maquinas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columna.add_child(_scroll_maquinas)
 	columna.move_child(_scroll_maquinas, indice)
+
+	# Historial de charlas: debajo de todo lo de la columna, arriba de pausa/play
+	_panel_charlas = _crear_panel(_estilo_panel(), Vector2(ANCHO_TARJETA, 0))
+	_panel_charlas.mouse_filter = Control.MOUSE_FILTER_PASS
+	var caja_charlas := _vbox(3)
+	_panel_charlas.add_child(caja_charlas)
+	var titulo_charlas := _label("Charlas", 10)
+	titulo_charlas.modulate = Color(0.6, 0.9, 1.0)
+	caja_charlas.add_child(titulo_charlas)
+	_scroll_charlas = ScrollContainer.new()
+	_scroll_charlas.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll_charlas.custom_minimum_size = Vector2(ANCHO_TARJETA - 16, 110)
+	_scroll_charlas.mouse_filter = Control.MOUSE_FILTER_PASS
+	caja_charlas.add_child(_scroll_charlas)
+	_lista_charlas = _vbox(3)
+	_lista_charlas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll_charlas.add_child(_lista_charlas)
+	var vacio := _label("Todavía nadie charló.", 9)
+	vacio.modulate = Color(0.6, 0.63, 0.7)
+	vacio.name = "Vacio"
+	_lista_charlas.add_child(vacio)
+	columna.add_child(_panel_charlas)
 
 	# Alertas arriba a la derecha
 	_alertas = VBoxContainer.new()
@@ -304,26 +333,125 @@ func _crear_controles_velocidad() -> void:
 	panel.offset_left = 12
 	panel.offset_bottom = -12
 	add_child(panel)
-	var fila := _hbox(4)
+	var fila := _hbox(6)
 	panel.add_child(fila)
+	# Pausa arriba y play abajo; a la derecha, la carpetita de Información más grande
+	var columna_velocidad := _vbox(4)
+	fila.add_child(columna_velocidad)
 	_boton_pausa = _boton_chico("")
 	_boton_pausa.icon = _icono(false)
 	_boton_pausa.tooltip_text = "Pausa (podés seguir dando órdenes)"
 	_boton_pausa.pressed.connect(func(): pausa_pedida.emit(true))
-	fila.add_child(_boton_pausa)
+	columna_velocidad.add_child(_boton_pausa)
 	_boton_play = _boton_chico("")
 	_boton_play.icon = _icono(true)
 	_boton_play.tooltip_text = "Play"
 	_boton_play.pressed.connect(func(): pausa_pedida.emit(false))
-	fila.add_child(_boton_play)
-	var info := _boton_chico("Información")
-	info.add_theme_font_size_override("font_size", 11)
-	info.tooltip_text = "Base (máquinas y mecánicas) y Diario (investigaciones)"
+	columna_velocidad.add_child(_boton_play)
+	var info := _boton_chico("")
+	info.icon = _cargar_textura("res://assets/sprites/carpetita.png")
+	info.expand_icon = true
+	info.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.custom_minimum_size = Vector2(56, 52)
+	if info.icon == null:
+		info.text = "Información"  # (si todavía no está la imagen)
+		info.add_theme_font_size_override("font_size", 11)
+	info.tooltip_text = "Información: Base (máquinas, mecánicas y astronautas) y Diario (investigaciones)"
 	info.pressed.connect(abrir_info)
 	fila.add_child(info)
 	_lbl_velocidad = _label("", 10)
 	_lbl_velocidad.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	fila.add_child(_lbl_velocidad)
+	if MOSTRAR_DEBUG:
+		_crear_botones_debug()
+
+
+## Botones de prueba (abajo a la derecha, arriba de las exploraciones). Apagalos con
+## MOSTRAR_DEBUG = false antes de entregar.
+func _crear_botones_debug() -> void:
+	var panel := _crear_panel(_estilo_panel(), Vector2(0, 0))
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_right = -12
+	panel.offset_bottom = -54
+	add_child(panel)
+	var caja := _vbox(4)
+	panel.add_child(caja)
+	var titulo := _label("Debug", 9)
+	titulo.modulate = Color(1.0, 0.6, 0.4)
+	caja.add_child(titulo)
+	var desbloquear := _boton_chico("Desbloquear investigación")
+	desbloquear.add_theme_font_size_override("font_size", 10)
+	desbloquear.pressed.connect(_debug_desbloquear)
+	caja.add_child(desbloquear)
+	var avanzar := _boton_chico("Investigación +25%")
+	avanzar.add_theme_font_size_override("font_size", 10)
+	avanzar.pressed.connect(_debug_avanzar)
+	caja.add_child(avanzar)
+
+
+func _debug_desbloquear() -> void:
+	if diario == null:
+		return
+	for m in diario.misiones:
+		if not m["desbloqueada"]:
+			diario.desbloquear(String(m["id"]))
+			var r := Recursos.de(self)
+			if r != null:
+				r.investigaciones_desbloqueadas = diario.cantidad_desbloqueadas()
+			agregar_alerta("[Debug] Desbloqueada: %s" % String(m["titulo"]), 0)
+			return
+	agregar_alerta("[Debug] Ya están todas desbloqueadas", 0)
+
+
+func _debug_avanzar() -> void:
+	if diario == null or not diario.hay_activa():
+		agregar_alerta("[Debug] No hay ninguna investigación en curso", 0)
+		return
+	var m: Dictionary = diario.activa()
+	var completa: Dictionary = diario.avanzar(diario.PROGRESO_TOTAL * 0.25)
+	if not completa.is_empty():
+		agregar_alerta("[Debug] ¡Investigación completa: %s!" % String(m["titulo"]), 0)
+	else:
+		agregar_alerta("[Debug] %s: %d%%" % [String(m["titulo"]), roundi(100.0 * diario.fraccion(m))], 0)
+
+
+## Agrega un mensaje al historial de charlas (se guardan los últimos MAX_CHARLAS).
+func agregar_charla(nombre: String, texto: String) -> void:
+	if _lista_charlas == null:
+		return
+	var vacio := _lista_charlas.get_node_or_null("Vacio")
+	if vacio != null:
+		vacio.queue_free()
+	var l := RichTextLabel.new()
+	l.bbcode_enabled = true
+	l.fit_content = true
+	l.scroll_active = false
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	l.custom_minimum_size = Vector2(ANCHO_TARJETA - 24, 0)
+	l.add_theme_font_size_override("normal_font_size", 9)
+	l.add_theme_font_size_override("bold_font_size", 9)
+	l.text = "[b][color=#8fe6ff]%s:[/color][/b] %s" % [nombre, texto.replace("[", "(").replace("]", ")")]
+	_lista_charlas.add_child(l)
+	var hijos := _lista_charlas.get_children().filter(func(n): return not n.is_queued_for_deletion())
+	while hijos.size() > MAX_CHARLAS:
+		hijos.pop_front().queue_free()
+	# Que se vea el último mensaje
+	await get_tree().process_frame
+	if is_instance_valid(_scroll_charlas):
+		_scroll_charlas.scroll_vertical = int(_scroll_charlas.get_v_scroll_bar().max_value)
+
+
+## Carga una imagen del proyecto; si el editor todavía no la importó, la lee directo del archivo.
+func _cargar_textura(ruta: String) -> Texture2D:
+	if ResourceLoader.exists(ruta):
+		return load(ruta)
+	if not FileAccess.file_exists(ruta):
+		return null
+	var img := Image.load_from_file(ProjectSettings.globalize_path(ruta))
+	return ImageTexture.create_from_image(img) if img != null else null
 
 
 ## Abre la ventana de Información (carpetas Base y Diario). No pausa el juego.
@@ -386,7 +514,8 @@ func _process(_delta: float) -> void:
 	if _scroll_maquinas == null:
 		return
 	var alto_contenido := contenedor_maquinas.get_combined_minimum_size().y
-	var disponible := get_viewport().get_visible_rect().size.y - _scroll_maquinas.global_position.y - 52.0  # deja lugar a pausa/play
+	var alto_charlas := _panel_charlas.size.y + 6.0 if _panel_charlas != null else 0.0
+	var disponible := get_viewport().get_visible_rect().size.y - _scroll_maquinas.global_position.y - 52.0 - alto_charlas  # deja lugar a charlas y pausa/play
 	_scroll_maquinas.custom_minimum_size.y = clampf(alto_contenido, 0.0, maxf(disponible, 60.0))
 
 func inicializar(tripulacion: Array[Personaje], maquinas: Array[Maquina] = [], recursos: Recursos = null) -> void:

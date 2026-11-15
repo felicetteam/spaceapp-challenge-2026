@@ -153,9 +153,10 @@ func _crear_lugar(i: int) -> Control:
 	boton.pressed.connect(_tocar_lugar.bind(i))
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	vbox.offset_top = 8
-	vbox.offset_bottom = -8
+	vbox.offset_top = 4
+	vbox.offset_bottom = -20  # el nombre (o "vacío") queda un poco más arriba
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 2)
 	vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	boton.add_child(vbox)
 	var img := _imagen_cabeza(-1, 56)
@@ -204,10 +205,12 @@ func _actualizar() -> void:
 		if c >= 0:
 			llenos += 1
 			img.texture = _textura_cabeza(c)
+			img.visible = true
 			lbl.text = String(Personaje.NOMBRES[c])
 			e.border_color = COLOR_BRILLO
 		else:
 			img.texture = null
+			img.visible = false  # vacío: el texto queda centrado, sin el hueco de la cabeza
 			lbl.text = "Lugar %d\n(vacío)" % (i + 1)
 			e.border_color = COLOR_BORDE
 	_boton_empezar.disabled = llenos < LUGARES
@@ -223,27 +226,10 @@ func _empezar() -> void:
 
 # --- Bonos y penalidades -------------------------------------------------------
 
-## Lee la tabla de afinidades y la pasa a textos ("+15% velocidad de trabajo"...).
+## Los textos de bonos y penalidades salen de Personaje/afinidades.gd (también los usa la
+## ventana de Información).
 func _describir(nombre: String) -> Dictionary:
-	var bonos := PackedStringArray()
-	var penalidades := PackedStringArray()
-	var salud := Afinidades.de(nombre, "salud")
-	var trabajo := Afinidades.de(nombre, "trabajo")
-	var investigacion := Afinidades.de(nombre, "investigacion")
-	# La tabla dice por cuánto se divide cada cosa: menos de 1 = bono, más de 1 = penalidad.
-	# Salud: el gasto de comida y energía queda multiplicado por el valor
-	if salud < 1.0:
-		bonos.append("Gasta %d%% menos comida y energía" % roundi((1.0 - salud) * 100.0))
-	elif salud > 1.0:
-		penalidades.append("Gasta %d%% más comida y energía" % roundi((salud - 1.0) * 100.0))
-	# Trabajo e investigación: la velocidad queda dividida por el valor
-	for datos in [[trabajo, "velocidad de trabajo y reparación"], [investigacion, "velocidad de investigación"]]:
-		var efecto: float = 1.0 / maxf(float(datos[0]), 0.01)
-		if efecto > 1.0:
-			bonos.append("+%d%% %s" % [roundi((efecto - 1.0) * 100.0), datos[1]])
-		elif efecto < 1.0:
-			penalidades.append("−%d%% %s" % [roundi((1.0 - efecto) * 100.0), datos[1]])
-	return {"bonos": bonos, "penalidades": penalidades}
+	return Afinidades.describir(nombre)
 
 
 # --- Ayudas ----------------------------------------------------------------------
