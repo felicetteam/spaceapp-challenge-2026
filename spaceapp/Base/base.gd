@@ -166,6 +166,7 @@ func _ready() -> void:
 	tutorial.iniciar()
 	if escritorio and interfaz_escritorio:
 		escritorio.interfaz_solicitada.connect(interfaz_escritorio.abrir)
+	tutorial.iniciar()
 
 ## Los astronautas elegidos en la pantalla de selección reemplazan a los de la escena
 ## (cada uno toma la cabeza, el nombre y las afinidades del elegido).

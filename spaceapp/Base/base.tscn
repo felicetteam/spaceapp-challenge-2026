@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://l2bb5bbpqi0n" path="res://Muebles/Comedor/comedor.tscn" id="13_jycdo"]
 [ext_resource type="PackedScene" uid="uid://d0id16ststmi0" path="res://Maquinas/Escudo/escudo_radiacion.tscn" id="14_2shue"]
 [ext_resource type="PackedScene" uid="uid://b43o1kw1drj01" path="res://Robots/Roomba/roomba.tscn" id="15_t1rgp"]
+[ext_resource type="PackedScene" uid="uid://cu2j6u8tjhl57" path="res://interfaz_escritorio.tscn" id="16_interfaz"]
 
 [node name="base" type="Node2D" unique_id=339836169]
 y_sort_enabled = true
@@ -81,3 +82,8 @@ position = Vector2(450, -241)
 
 [node name="Roomba" parent="." unique_id=1409056617 instance=ExtResource("15_t1rgp")]
 position = Vector2(-32, 94)
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=2066601124]
+layer = 10
+
+[node name="InterfazEscritorio" parent="CanvasLayer" unique_id=2066601125 instance=ExtResource("16_interfaz")]
