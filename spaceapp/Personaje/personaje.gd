@@ -261,6 +261,10 @@ func _physics_process(delta: float) -> void:
 	if yendo_a_evento and orden != Orden.MOVER:
 		yendo_a_evento = false
 
+	# Recibió una orden estando acostado: se levanta antes de moverse
+	if en_cama and orden != Orden.NINGUNA:
+		_salir_de_cama()
+
 	# Sin control por flechas: las flechas cambian de astronauta y de máquina (ver base.gd)
 	var dir := Vector2.ZERO
 	# Mover con el teclado cancela cualquier orden de point and click
@@ -1476,6 +1480,21 @@ func _aplicar_cabeza() -> void:
 	sprite_cabeza.animation = &"Cabezas"
 	sprite_cabeza.frame = int(cabeza)
 
+func _salir_de_cama() -> void:
+	for c in get_tree().get_nodes_in_group("camas"):
+		if c.ocupante == self:
+			c.levantar()
+
+## Acostado: se ve solo la cabeza (cuerpo, brazo y casco ocultos debajo de la sábana).
+func set_solo_cabeza(valor: bool) -> void:
+	sprite_cuerpo.visible = not valor
+	sprite_brazo.visible = not valor
+	sprite_casco.visible = (not valor) and con_casco and afuera and sprite_casco.frame == 1
+
+## Centro de la cabeza respecto del origen del personaje (mirando a la derecha o espejado).
+func offset_cabeza() -> Vector2:
+	return Vector2(-2.5 if sprite_cabeza.flip_h else 2.5, -6.0)
+
 ## Fuera de la base (suelo marciano) se pone el casco; al volver se lo saca.
 func set_afuera(valor: bool) -> void:
 	if valor == afuera:
@@ -1484,12 +1503,21 @@ func set_afuera(valor: bool) -> void:
 	en_exterior = valor
 	if not con_casco:
 		return
+	if en_cama:
+		sprite_casco.frame = 1 if valor else 0
+		sprite_casco.visible = false  # acostado no se ve
+		return
 	# Animación "Casco": cuadro 0 vacío, cuadro 1 el casco puesto
 	if _tween_casco != null:
 		_tween_casco.kill()
 	sprite_casco.stop()
 	sprite_casco.animation = &"Casco"
 	sprite_casco.visible = true
+	if not can_process():
+		# Fuera de servicio (por ejemplo, arriba del rover): sin animación, directo
+		sprite_casco.frame = 1 if valor else 0
+		sprite_casco.visible = valor
+		return
 	_tween_casco = create_tween()
 	if valor:
 		sprite_casco.frame = 0

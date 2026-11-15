@@ -13,7 +13,7 @@ signal volvio(rover: Rover)
 @export var sprite_mira_derecha := false
 ## Dónde va sentado el astronauta, respecto del centro del rover (mirando hacia la izquierda;
 ## de vuelta, hacia la derecha, se espeja).
-@export var asiento := Vector2(4, -12)
+@export var asiento := Vector2(4, -6)
 
 var en_exploracion := false
 var pasajero: Personaje = null

@@ -9,6 +9,7 @@ size = Vector2(36, 16)
 [node name="cama_habitacion" type="StaticBody2D" unique_id=1231800518]
 script = ExtResource("2_cama")
 rotacion_personaje_grados = -90.0
+posicion_cabeza = Vector2(-11, -3)
 
 [node name="cama" type="AnimatedSprite2D" parent="." unique_id=1281566447]
 sprite_frames = ExtResource("1_kkuy2")

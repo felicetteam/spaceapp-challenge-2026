@@ -38,6 +38,7 @@ script = ExtResource("1_cama")
 solo_desmayados = true
 recupera_comida = 1.5
 consumo_energia_uso = 0.05
+posicion_cabeza = Vector2(0, -11)
 
 [node name="sabana" type="AnimatedSprite2D" parent="." unique_id=353065762]
 visible = false

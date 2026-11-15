@@ -228,6 +228,10 @@ func _detectar_tiles_exterior() -> void:
 
 ## true si en esa posición del mapa hay suelo marciano (afuera de la base).
 func es_exterior(pos: Vector2) -> bool:
+	# Debajo del invernadero es interior, aunque el tile sea naranja
+	for m in maquinas:
+		if m is Invernadero and m.rect_global().grow(4.0).has_point(pos):
+			return false
 	var celda := tilemap.local_to_map(tilemap.to_local(pos))
 	var id := tilemap.get_cell_source_id(celda)
 	if id == -1:
@@ -257,7 +261,9 @@ func _process(delta: float) -> void:
 	_actualizar_camara(delta)
 	var lluvia := eventos != null and eventos.lluvia_activa()
 	for astro in tripulacion:
-		astro.set_afuera(es_exterior(astro.pies()))
+		# Explorando (en el rover o fuera del mapa) siempre está afuera: con casco
+		var explorando := astro.en_evento and astro.evento_fuera
+		astro.set_afuera(explorando or es_exterior(astro.pies()))
 		astro.actualizar_salud(delta, recursos.oxigeno, recursos.radiacion, lluvia)
 	if _luz != null:
 		_luz.color = color_noche.lerp(Color.WHITE, recursos.luz())
@@ -525,6 +531,10 @@ func _clic_izquierdo(punto: Vector2) -> void:
 	#    (Clic derecho o el teclado sí cancelan la tarea.)
 	if activo.esta_en_tarea():
 		activo.mostrar_cartel("Ocupado: clic en otra máquina o clic derecho")
+		return
+	# Durmiendo: caminar no lo levanta (solo una máquina, un mueble o clic derecho)
+	if activo.en_cama:
+		activo.mostrar_cartel("Durmiendo: clic en una máquina o mueble")
 		return
 	activo.ir_a(punto)
 
