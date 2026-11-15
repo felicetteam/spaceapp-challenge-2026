@@ -902,7 +902,7 @@ func _lejos_del_puesto() -> bool:
 	var escritorio := maquina_actual.escritorio_de_silla()
 	if escritorio != null:
 		return pies().distance_to(escritorio.posicion_silla()) > 10.0
-	return not maquina_actual.rect_global().grow(margen_trabajo_max + 8.0).has_point(pies())
+	return not maquina_actual.rect_global().grow(maquina_actual.margen_trabajo_max + 8.0).has_point(pies())
 
 func _empezar_en_puesto() -> void:
 	_en_puesto = true
