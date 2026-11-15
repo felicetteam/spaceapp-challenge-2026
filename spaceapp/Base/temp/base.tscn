@@ -1,4 +1,4 @@
-[gd_scene format=4 uid="uid://cp62uauomhfu1"]
+[gd_scene format=4 uid="uid://cl2dy6jes1nkk"]
 
 [ext_resource type="Script" uid="uid://deo35w86dwkno" path="res://Base/base.gd" id="1_0m7nb"]
 [ext_resource type="TileSet" uid="uid://csxo7kk1akqyb" path="res://tile_sets/base.tres" id="1_rpg24"]

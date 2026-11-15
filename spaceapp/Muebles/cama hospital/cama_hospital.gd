@@ -6,7 +6,7 @@ extends Node2D
 ## Cuando no hay nadie, la sábana está siempre oculta.
 ##
 ## Cama de hospital: solo_desmayados = true (solo acepta astronautas con salud 0, que trae la
-## roomba), recupera sueño y comida despacio y consume energía mientras se usa.
+## roomba), además del sueño recupera comida despacio y consume energía mientras se usa.
 ## Funciona con raíz StaticBody2D, Area2D o Node2D.
 
 signal personaje_acostado(personaje: Personaje)
@@ -20,12 +20,17 @@ signal personaje_levantado(personaje: Personaje)
 ## Rotación que se le aplica al personaje mientras está acostado, en grados.
 ## Negativo = antihorario.
 @export var rotacion_personaje_grados := 0.0
+## Acostado se ve solo la cabeza (el cuerpo queda tapado por la sábana). En ese caso no se
+## rota al personaje: se lo ubica para que la cabeza quede en posicion_cabeza.
+@export var solo_cabeza := true
+## Dónde va la cabeza (sobre la almohada), respecto del centro de la cama.
+@export var posicion_cabeza := Vector2.ZERO
 
 @export_group("Uso")
 ## Solo acepta astronautas inconscientes (salud 0). Para la cama de hospital.
 @export var solo_desmayados := false
-## Sueño que recupera por segundo mientras está acostado.
-@export var recupera_sueno := 6.0
+## El sueño se recupera al ritmo balanceado de Personaje.ritmo_recuperar_sueno()
+## (2/3 de la noche para ir de 0 a 100; más lento si está inconsciente).
 ## Comida que recupera por segundo mientras está acostado.
 @export var recupera_comida := 0.0
 ## Energía por segundo mientras está ocupada. Si es mayor a 0, sin energía no recupera nada.
@@ -74,8 +79,7 @@ func _process(delta: float) -> void:
 	ocupante.durmiendo = recuperando
 	if recuperando:
 		var aj := Ajustes.actual()
-		var mult := aj.velocidad_hospital if solo_desmayados else aj.velocidad_dormir
-		ocupante.sueno = maxf(0.0, ocupante.sueno - recupera_sueno * mult * delta)
+		ocupante.sueno = maxf(0.0, ocupante.sueno - ocupante.ritmo_recuperar_sueno() * delta)
 		ocupante.hambre = maxf(0.0, ocupante.hambre - recupera_comida * aj.velocidad_hospital * delta)
 	# Recuperado (y despierto): se levanta y vuelve al idle
 	var p := ocupante
@@ -98,8 +102,13 @@ func acostar(p: Personaje) -> void:
 	ocupante = p
 	p.en_cama = true
 	p.quiere_acostarse = false
-	p.global_position = global_position + offset_personaje
-	p.rotation = deg_to_rad(rotacion_personaje_grados)
+	if solo_cabeza:
+		p.rotation = 0.0
+		p.set_solo_cabeza(true)
+		p.global_position = to_global(posicion_cabeza) - p.offset_cabeza()
+	else:
+		p.global_position = global_position + offset_personaje
+		p.rotation = deg_to_rad(rotacion_personaje_grados)
 	# La cabeza queda por encima de la sábana mientras está acostado
 	_z_cabeza_original = p.sprite_cabeza.z_index
 	p.sprite_cabeza.z_index = sprite_sabana.z_index + 1
@@ -114,6 +123,7 @@ func levantar() -> void:
 	ocupante = null
 	p.en_cama = false
 	p.durmiendo = false
+	p.set_solo_cabeza(false)
 	p.rotation = -PI / 2.0 if p.desmayado else 0.0
 	p.sprite_cabeza.z_index = _z_cabeza_original
 	sprite_sabana.visible = false
@@ -156,5 +166,7 @@ func _on_body_entered(body: Node2D) -> void:
 func _on_body_exited(body: Node2D) -> void:
 	if body is Personaje:
 		_encima.erase(body)
-		if body == ocupante:
+		# Acostado solo con la cabeza a la vista, el cuerpo puede quedar fuera de la zona: eso no
+		# lo levanta. Se levanta cuando recibe una orden (lo hace el Personaje).
+		if body == ocupante and not (solo_cabeza and body.en_cama):
 			levantar()

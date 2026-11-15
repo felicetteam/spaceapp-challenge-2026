@@ -1,7 +1,8 @@
 class_name Roomba
 extends Node2D
 ## Robot que lleva a los astronautas inconscientes (salud 0) a una cama de hospital libre,
-## o a una cama común si no hay ninguna de hospital disponible. Después vuelve a su base
+## o a una cama común si no hay ninguna de hospital disponible. A los que se durmieron de
+## agotamiento (sueño al máximo) los lleva a una cama común (o a la de hospital si no hay otra). Después vuelve a su base
 ## (el lugar donde está puesto en la escena). Necesita energía para moverse.
 ## base.gd le asigna la navegación.
 
@@ -75,7 +76,7 @@ func _buscar_paciente() -> void:
 		var p := nodo as Personaje
 		if p == null or not p.desmayado or p.en_cama or p.siendo_llevado or p.reservado_por != null:
 			continue
-		var c := _cama_libre(p.pies())
+		var c := _cama_libre(p.pies(), p.dormido_agotado)
 		if c == null:
 			continue  # no hay camas libres: sigue esperando
 		var ruta := navegacion.camino(global_position, p.pies())
@@ -91,7 +92,8 @@ func _buscar_paciente() -> void:
 
 
 ## La cama de hospital libre más cercana; si no hay, la cama común libre más cercana.
-func _cama_libre(desde: Vector2) -> CamaHospital:
+## Con preferir_comun (dormido por agotamiento) es al revés.
+func _cama_libre(desde: Vector2, preferir_comun := false) -> CamaHospital:
 	var mejor_hospital: CamaHospital = null
 	var mejor_comun: CamaHospital = null
 	var d_hospital := INF
@@ -108,6 +110,8 @@ func _cama_libre(desde: Vector2) -> CamaHospital:
 		elif d < d_comun:
 			d_comun = d
 			mejor_comun = c
+	if preferir_comun:
+		return mejor_comun if mejor_comun != null else mejor_hospital
 	return mejor_hospital if mejor_hospital != null else mejor_comun
 
 

@@ -10,7 +10,10 @@ extends Node
 ## Oxígeno: mientras haya una máquina de O2 funcionando, sigue a la energía: se mantiene
 ##   al 100% con energía >= 75%; por debajo baja despacio hasta el nivel de la energía,
 ##   y si la energía sube, sube despacio hasta alcanzarla. Sin máquina de O2, baja solo.
-## Radiación: sube sola salvo que haya un escudo funcionando. Acelera el desgaste de las
+##   Si la máquina está desgastada pone un tope: borde amarillo hasta 75%, rojo hasta 50%
+##   (bajando muy despacio). Rota (mantenimiento 0) ya no funciona y el oxígeno cae a 0.
+## Radiación: sube sola salvo que haya un escudo funcionando. Con un escudo en amarillo o mejor
+##   (sin llegar al rojo) además baja sola, bastante rápido; en rojo solo la frena. Acelera el desgaste de las
 ##   máquinas y, por encima de 80%, daña la salud de los astronautas.
 
 signal actualizado(recursos: Recursos)
@@ -48,12 +51,18 @@ const DURACION_SOL_HORAS := 24.65  # 24 h 39 min
 @export var ritmo_o2 := 0.4
 ## Cuánto baja por segundo si ninguna máquina de O2 funciona.
 @export var perdida_o2_sin_maquina := 0.2
+## Cuánto baja por segundo, como mucho, cuando la máquina desgastada no da para más (muy lento).
+@export var perdida_o2_desgaste := 0.05
 
 @export_group("Radiación")
 ## Cuánto sube por segundo cuando no hay escudos funcionando.
 @export var aumento_radiacion := 0.04
+## Cuánto baja por segundo con un escudo en amarillo o mejor (de 100% a 0% en unos 7 minutos).
+@export var descenso_radiacion := 0.25
 
 var sol := 1
+## Investigaciones habilitadas por exploraciones (sin ninguna, el escritorio no avanza).
+var investigaciones_desbloqueadas := 0
 var hora := 8.0
 var comunicaciones_activas := false
 var generacion_actual := 0.0
@@ -61,7 +70,11 @@ var consumo_actual := 0.0
 
 # Banderas que las máquinas encienden cada frame en que funcionan
 var _o2_regulado := false
+## Máximo de oxígeno que pueden sostener las máquinas de O2 este frame (según su desgaste).
+var _tope_o2 := 0.0
 var _escudo_activo := false
+## Algún escudo funcionando está en amarillo o mejor: la radiación baja.
+var _escudo_bajando := false
 var _comunicaciones := false
 var _era_de_dia := true
 var _t_alertas := 0.0
@@ -102,6 +115,11 @@ func _process(delta: float) -> void:
 	if _o2_regulado:
 		var objetivo := 100.0 if energia >= umbral_energia_o2 else energia
 		var ritmo := ritmo_o2 * (aj.caida_oxigeno if objetivo < oxigeno else 1.0)
+		if _tope_o2 < objetivo:
+			# La máquina desgastada no llega: baja muy despacio hasta su tope
+			objetivo = _tope_o2
+			if oxigeno > objetivo:
+				ritmo = perdida_o2_desgaste * aj.caida_oxigeno
 		oxigeno = move_toward(oxigeno, objetivo, ritmo * delta)
 	else:
 		oxigeno = move_toward(oxigeno, 0.0, perdida_o2_sin_maquina * aj.caida_oxigeno * delta)
@@ -109,10 +127,14 @@ func _process(delta: float) -> void:
 	# Radiación
 	if not _escudo_activo:
 		radiacion = minf(100.0, radiacion + aumento_radiacion * aj.subida_radiacion * delta)
+	elif _escudo_bajando:
+		radiacion = maxf(0.0, radiacion - descenso_radiacion * delta)
 
 	comunicaciones_activas = _comunicaciones
 	_o2_regulado = false
+	_tope_o2 = 0.0
 	_escudo_activo = false
+	_escudo_bajando = false
 	_comunicaciones = false
 
 	_t_alertas -= delta
@@ -125,11 +147,16 @@ func _process(delta: float) -> void:
 
 # --- Lo que llaman las máquinas mientras funcionan -----------------------------
 
-func regular_oxigeno() -> void:
+## tope: el máximo de oxígeno que sostiene la máquina (100 si está sana). Con varias
+## máquinas de O2 vale la que esté mejor.
+func regular_oxigeno(tope := 100.0) -> void:
 	_o2_regulado = true
+	_tope_o2 = maxf(_tope_o2, tope)
 
-func activar_escudo() -> void:
+## baja: el escudo está en amarillo o mejor, así que además de frenarla hace bajar la radiación.
+func activar_escudo(baja := false) -> void:
 	_escudo_activo = true
+	_escudo_bajando = _escudo_bajando or baja
 
 func reportar_comunicaciones() -> void:
 	_comunicaciones = true
@@ -155,6 +182,16 @@ func efectividad_comida() -> float:
 		if i.funcionando():
 			mejor = maxf(mejor, i.mantenimiento / 100.0)
 	return mejor
+
+## Segundos reales que dura una hora de juego (con el multiplicador del reloj).
+func segundos_por_hora() -> float:
+	return duracion_sol_segundos / DURACION_SOL_HORAS / maxf(Ajustes.actual().velocidad_reloj, 0.001)
+
+
+## Horas de juego que dura la noche (de hora_anochecer a hora_amanecer).
+func horas_de_noche() -> float:
+	return fposmod(hora_amanecer - hora_anochecer, DURACION_SOL_HORAS)
+
 
 func es_de_dia() -> bool:
 	return hora >= hora_amanecer and hora < hora_anochecer
@@ -203,6 +240,13 @@ func _avisar(texto: String, nivel: int) -> void:
 		alerta.emit(texto, nivel, null)
 
 
+## Aviso de otro nodo (por ejemplo, un astronauta que se despertó). Como todas las alertas,
+## solo llega con las comunicaciones funcionando.
+func avisar(texto: String, nivel: int, objetivo: Node2D = null) -> void:
+	if comunicaciones_activas:
+		alerta.emit(texto, nivel, objetivo)
+
+
 ## Las alertas solo llegan con las comunicaciones funcionando. Cada condición avisa una vez
 ## y se rearma cuando deja de cumplirse.
 func _revisar_alertas() -> void:
@@ -214,9 +258,9 @@ func _revisar_alertas() -> void:
 		if not m.tiene_desgaste:
 			continue
 		var id := str(m.get_instance_id())
-		_condicion("crit" + id, m.mantenimiento < 30.0 and m.mantenimiento > 0.0,
+		_condicion("crit" + id, m.mantenimiento <= m.umbral_critico and not m.averiada,
 				"%s: mantenimiento crítico" % m.nombre_maquina, 1, m)
-		_condicion("rota" + id, m.mantenimiento <= 0.0, "%s fuera de servicio" % m.nombre_maquina, 2, m)
+		_condicion("rota" + id, m.averiada, "%s fuera de servicio" % m.nombre_maquina, 2, m)
 	for a in get_tree().get_nodes_in_group("astronautas"):
 		_condicion("desm" + str(a.get_instance_id()), a.desmayado,
 				"%s está inconsciente" % a.obtener_nombre(), 2, a)
