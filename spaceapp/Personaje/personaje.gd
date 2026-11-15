@@ -67,6 +67,24 @@ const NOMBRES := {
 ## Con la comida en 0 pierde esta cantidad de salud por segundo (x Ajustes.dano_hambre).
 @export var dano_por_hambre := 1.0
 
+@export_group("Necesidades")
+## Desde este hambre (0-100) aparece el globo de comida y, en idle, pasea hacia el comedor.
+@export var umbral_globo_hambre := 70.0
+## Desde este sueño (0-100) aparece el globo de sueño y, en idle, pasea hacia las camas.
+@export var umbral_globo_sueno := 75.0
+## Trabajando en un evento, con este hambre o sueño se toma una pausa para comer o dormir.
+@export var umbral_pausa_hambre := 85.0
+@export var umbral_pausa_sueno := 85.0
+
+@export_group("Linterna")
+## De noche alumbra con un cono hacia donde camina.
+@export var usar_linterna := true
+@export var energia_linterna := 0.7
+## Largo del cono, en píxeles.
+@export var alcance_linterna := 70.0
+## Cuánto más adelante del cuerpo empieza el cono, en píxeles.
+@export var separacion_linterna := 9.0
+
 @export_group("Encuentros")
 ## A qué distancia (px, entre pies) detecta a otro astronauta adelante en su camino.
 @export var distancia_deteccion := 18.0
@@ -131,6 +149,20 @@ var reservado_por: Node = null
 var en_evento := false
 var evento_fuera := false
 var motivo_evento := ""
+## Trabajando en un evento (modo ocupado) se puede tomar una pausa para comer o dormir:
+## mientras dura, el tiempo del evento no corre. Después vuelve a su lugar de trabajo.
+var pausa_evento := false
+var _volviendo_a_evento := false
+var _punto_evento := Vector2.INF
+var _t_revisar_pausa := 0.0
+var _t_pausa_sin_orden := 0.0
+## Está sobre suelo marciano (fuera de la base): lleva el casco puesto.
+var afuera := false
+var _tween_casco: Tween
+var _globo: Globo
+var _linterna: PointLight2D
+var _dir_linterna := Vector2.RIGHT
+static var _textura_cono: ImageTexture
 ## Camina hacia la estructura de un evento crítico (ver Eventos): no acepta otras órdenes.
 ## Lo pone en false al llegar, o si no pudo llegar (Eventos lo revisa para aplicar la decisión).
 var yendo_a_evento := false
@@ -193,11 +225,14 @@ func _ready() -> void:
 	_paseos_restantes = randi_range(paseos_antes_de_volver_min, paseos_antes_de_volver_max)
 	_configurar_barra_flotante()
 	_crear_cartel_y_sonido()
+	_crear_globo_y_linterna()
 	_actualizar_animaciones(true)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
+	_actualizar_globo()
+	_actualizar_linterna(delta)
 	_actualizar_borde_seleccion()
 
 func _physics_process(delta: float) -> void:
@@ -208,18 +243,26 @@ func _physics_process(delta: float) -> void:
 	if desmayado or siendo_llevado:
 		velocity = Vector2.ZERO
 		return
-	# Ocupado por un evento: se queda en su lugar laburando, sin aceptar órdenes
+	# Ocupado por un evento: se queda en su lugar laburando, sin aceptar órdenes.
+	# Si tiene mucha hambre o sueño se toma una pausa (y después vuelve).
 	if en_evento:
-		velocity = Vector2.ZERO
-		return
+		if evento_fuera:
+			velocity = Vector2.ZERO
+			return
+		if not pausa_evento and not _volviendo_a_evento:
+			velocity = Vector2.ZERO
+			set_corriendo(false)
+			set_laburando(true)  # mantenimiento de la misión: animación de laburo
+			_revisar_pausa_evento(delta)
+			return
+		_vigilar_pausa(delta)
 
 	# Camino a un evento: si la orden se cortó (por ejemplo, sin camino), ya no va
 	if yendo_a_evento and orden != Orden.MOVER:
 		yendo_a_evento = false
 
+	# Sin control por flechas: las flechas cambian de astronauta y de máquina (ver base.gd)
 	var dir := Vector2.ZERO
-	if controlado_por_jugador and not yendo_a_evento:
-		dir = Input.get_vector(accion_izquierda, accion_derecha, accion_arriba, accion_abajo)
 	# Mover con el teclado cancela cualquier orden de point and click
 	if dir != Vector2.ZERO and (orden != Orden.NINGUNA or _desvio != Desvio.NINGUNO):
 		detener()
@@ -233,6 +276,12 @@ func _physics_process(delta: float) -> void:
 			_mover_manual(dir)
 		Orden.MOVER:
 			if _seguir_camino(delta):
+				if _volviendo_a_evento:
+					_volviendo_a_evento = false
+					detener()
+					set_laburando(true)
+					mostrar_cartel("De vuelta al trabajo")
+					return
 				if yendo_a_evento:
 					yendo_a_evento = false
 					llego_a_evento = true
@@ -337,6 +386,10 @@ func _siguiente_paseo() -> void:
 		_paseos_restantes = randi_range(paseos_antes_de_volver_min, paseos_antes_de_volver_max)
 		if pies().distance_to(_punto_inicio) > 12.0:
 			destino = _punto_inicio
+	# Con hambre o sueño, pasea un poco hacia el comedor o las camas (sin usarlos solo)
+	var meta := _meta_necesidad()
+	if meta != Vector2.INF:
+		destino = _paso_hacia(meta)
 	if destino == Vector2.INF:
 		destino = navegacion.punto_aleatorio(pies(), distancia_paseo_min, distancia_paseo_max)
 		_paseos_restantes -= 1
@@ -345,6 +398,40 @@ func _siguiente_paseo() -> void:
 	orden = Orden.PASEO
 	if not _calcular_camino(destino):
 		orden = Orden.NINGUNA
+
+## Comedor (con hambre) o cama libre más cercana (con sueño). Vector2.INF si no necesita nada.
+func _meta_necesidad() -> Vector2:
+	var con_hambre := hambre >= umbral_globo_hambre
+	var con_sueno := sueno >= umbral_globo_sueno
+	if con_hambre and (not con_sueno or hambre >= sueno):
+		var c := _comedor_mas_cercano()
+		if c != null:
+			return c.global_position
+	if con_sueno:
+		var cama := _cama_comun_libre()
+		if cama != null:
+			return cama.global_position
+	return Vector2.INF
+
+func _comedor_mas_cercano() -> Node2D:
+	var mejor: Node2D = null
+	for c in get_tree().get_nodes_in_group("comedores"):
+		if mejor == null or pies().distance_to(c.global_position) < pies().distance_to(mejor.global_position):
+			mejor = c
+	return mejor
+
+## Un paseo corto en dirección a la meta: avanza la mitad del camino (como mucho un paseo largo)
+## y se queda cerca cuando ya llegó.
+func _paso_hacia(meta: Vector2) -> Vector2:
+	var dif := meta - pies()
+	if dif.length() < 36.0:
+		return Vector2.INF
+	var largo := minf(dif.length() * 0.5, distancia_paseo_max)
+	var punto := pies() + dif.normalized() * largo + Vector2(randf_range(-12, 12), randf_range(-12, 12))
+	var celda := navegacion.celda_transitable_cercana(punto, 6)
+	if celda == Navegacion.SIN_CELDA:
+		return Vector2.INF
+	return navegacion.posicion_de(celda)
 
 func _fin_de_paseo() -> void:
 	orden = Orden.NINGUNA
@@ -356,6 +443,9 @@ func _fin_de_paseo() -> void:
 func terminar_tarea(mensaje := "") -> void:
 	if mensaje != "":
 		mostrar_cartel(mensaje)
+	if en_evento and pausa_evento:
+		_volver_al_evento()  # terminó la pausa: vuelve a trabajar en el evento
+		return
 	detener()
 	_t_idle = randf_range(0.8, 2.0)  # sale a pasear enseguida
 
@@ -390,6 +480,9 @@ func trabajar_en(m: Maquina) -> void:
 		return
 	if _no_responde():
 		return
+	if m.esta_apagada():
+		mostrar_cartel("Apagada: no se puede reparar")
+		return
 	quiere_acostarse = false
 	_terminar_desvio()
 	_soltar_maquina()
@@ -400,7 +493,12 @@ func trabajar_en(m: Maquina) -> void:
 
 ## Va a un mueble usable (por ahora, el comedor): reserva un lugar, camina hasta ahí y lo usa.
 func usar(mueble: Node) -> void:
-	if mueble == null or _no_responde():
+	if mueble == null:
+		return
+	if en_evento and not evento_fuera and not desmayado and not pausa_evento:
+		pausa_evento = true  # el jugador lo manda a comer en medio del trabajo del evento
+		mostrar_cartel("Pausa para comer")
+	if _no_responde():
 		return
 	quiere_acostarse = false
 	if orden == Orden.USAR and mueble_actual == mueble:
@@ -487,22 +585,104 @@ func iniciar_evento(fuera: bool, motivo: String, _segundos: float) -> void:
 		visible = false
 		process_mode = Node.PROCESS_MODE_DISABLED  # también lo saca de la física
 	else:
+		_punto_evento = pies()
+		pausa_evento = false
+		_volviendo_a_evento = false
 		set_laburando(true)
 		mostrar_cartel("Ocupado: %s" % motivo)
 
-func terminar_evento() -> void:
+## donde: dónde reaparece si estaba fuera de la base (INF = su punto de inicio).
+func terminar_evento(donde := Vector2.INF) -> void:
 	if not en_evento:
 		return
 	en_evento = false
+	pausa_evento = false
+	_volviendo_a_evento = false
 	if evento_fuera:
 		process_mode = Node.PROCESS_MODE_INHERIT
 		visible = true
-		# Reaparece en su punto de inicio
-		global_position += _punto_inicio - pies()
+		# Reaparece en su punto de inicio (o donde lo deja el rover)
+		var lugar := _punto_inicio if donde == Vector2.INF else donde
+		if navegacion != null and navegacion.listo:
+			var celda := navegacion.celda_transitable_cercana(lugar, 8, false)
+			if celda != Navegacion.SIN_CELDA:
+				lugar = navegacion.posicion_de(celda)
+		global_position += lugar - pies()
 	evento_fuera = false
 	motivo_evento = ""
 	_quedar_idle()
 	mostrar_cartel("De vuelta")
+
+## true mientras el tiempo de su tarea de evento está frenado (comiendo, durmiendo o volviendo).
+func en_pausa_evento() -> bool:
+	return en_evento and not evento_fuera and (pausa_evento or _volviendo_a_evento)
+
+## Revisa (cada segundo) si necesita parar a comer o a dormir.
+func _revisar_pausa_evento(delta: float) -> void:
+	_t_revisar_pausa -= delta
+	if _t_revisar_pausa > 0.0:
+		return
+	_t_revisar_pausa = 1.0
+	if hambre >= umbral_pausa_hambre:
+		var comedor := _comedor_para_comer()
+		if comedor != null:
+			pausa_evento = true
+			mostrar_cartel("Pausa para comer")
+			usar(comedor)
+			return
+	if sueno >= umbral_pausa_sueno:
+		var cama := _cama_comun_libre()
+		if cama != null:
+			acostarse_en(cama)
+
+## Durante la pausa: si se quedó sin nada que hacer (no llegó, no había lugar), vuelve.
+func _vigilar_pausa(delta: float) -> void:
+	if pausa_evento and orden == Orden.NINGUNA and not en_cama:
+		_t_pausa_sin_orden += delta
+		if _t_pausa_sin_orden > 0.8:
+			terminar_tarea()
+	else:
+		_t_pausa_sin_orden = 0.0
+
+## Termina la pausa y camina de vuelta a donde estaba trabajando.
+func _volver_al_evento() -> void:
+	pausa_evento = false
+	_t_pausa_sin_orden = 0.0
+	detener()
+	if _punto_evento == Vector2.INF or pies().distance_to(_punto_evento) < 4.0:
+		set_laburando(true)
+		return
+	_volviendo_a_evento = true
+	orden = Orden.MOVER
+	if not _calcular_camino(_punto_evento):
+		_volviendo_a_evento = false
+		detener()
+		set_laburando(true)
+
+## Va a acostarse en una cama común. En medio de un trabajo de evento, es una pausa.
+func acostarse_en(cama: Node2D) -> void:
+	if en_evento and not evento_fuera and not desmayado:
+		pausa_evento = true
+		mostrar_cartel("Pausa para dormir")
+	ir_a(cama.global_position + cama.offset_personaje)
+	quiere_acostarse = true
+
+func _comedor_para_comer() -> Node2D:
+	var mejor: Node2D = null
+	for c in get_tree().get_nodes_in_group("comedores"):
+		if c.lugares_libres() > 0 and c._puede_comer(self):
+			if mejor == null or pies().distance_to(c.global_position) < pies().distance_to(mejor.global_position):
+				mejor = c
+	return mejor
+
+func _cama_comun_libre() -> Node2D:
+	var mejor: Node2D = null
+	for c in get_tree().get_nodes_in_group("camas"):
+		if c.solo_desmayados or not c.esta_libre():
+			continue
+		if mejor == null or pies().distance_to(c.global_position) < pies().distance_to(mejor.global_position):
+			mejor = c
+	return mejor
 
 ## true si está en una tarea: trabajando en una máquina o usando un mueble (comedor).
 func esta_en_tarea() -> bool:
@@ -540,6 +720,9 @@ func _quedar_idle() -> void:
 func _soltar_maquina() -> void:
 	if maquina_actual != null:
 		maquina_actual.quitar_trabajador(self)
+		var escritorio := maquina_actual.escritorio_de_silla()
+		if escritorio != null:
+			escritorio.liberar_silla(self)
 	maquina_actual = null
 	_en_puesto = false
 	if mueble_actual != null and is_instance_valid(mueble_actual):
@@ -551,7 +734,7 @@ func _no_responde() -> bool:
 	if desmayado or siendo_llevado:
 		mostrar_cartel("Inconsciente")
 		return true
-	if en_evento:
+	if en_evento and not pausa_evento:
 		mostrar_cartel("Ocupado: %s" % motivo_evento)
 		return true
 	if yendo_a_evento:
@@ -643,6 +826,18 @@ func _ir_a_puesto_nuevo() -> void:
 	set_laburando(false)
 	if navegacion == null or not navegacion.listo or maquina_actual == null:
 		return
+	# Escritorio (o máquina encima de uno): se trabaja sentado en la silla, sin dar vueltas
+	var escritorio := maquina_actual.escritorio_de_silla()
+	if escritorio != null:
+		var lugar := escritorio.reservar_silla(self)
+		if lugar == Vector2.INF:
+			mostrar_cartel("Silla ocupada")
+			detener()
+		elif not _calcular_camino(lugar):
+			escritorio.liberar_silla(self)
+			mostrar_cartel("Sin acceso")
+			detener()
+		return
 	var puestos := maquina_actual.puntos_de_trabajo(navegacion)
 	puestos.shuffle()
 	var aca := pies()
@@ -665,6 +860,9 @@ func _proceso_trabajo(delta: float) -> void:
 		return
 
 	velocity = Vector2.ZERO
+	if maquina_actual.esta_apagada():
+		terminar_tarea("Apagada: no se puede reparar")
+		return
 	var mult := afinidad("investigacion") if maquina_actual is Escritorio else afinidad("trabajo")
 	if esta_feliz():
 		mult *= Ajustes.actual().bonus_feliz
@@ -674,7 +872,7 @@ func _proceso_trabajo(delta: float) -> void:
 		terminar_tarea("%s lista" % maquina_actual.nombre_maquina)
 		return
 	_t_puesto -= delta
-	if _t_puesto <= 0.0:
+	if _t_puesto <= 0.0 and maquina_actual.escritorio_de_silla() == null:  # en la silla no se mueve
 		_ir_a_puesto_nuevo()
 
 func _proceso_uso(delta: float) -> void:
@@ -1075,7 +1273,7 @@ func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 		estado_alerta = ("Dormido (agotado) %ds" if dormido_agotado else "Inconsciente %ds") % falta
 	elif en_evento:
 		var t := int(maxf(tiempo_evento, 0.0))
-		estado_alerta = "Ocupado %d:%02d" % [t / 60, t % 60]
+		estado_alerta = ("Pausa %d:%02d" if en_pausa_evento() else "Ocupado %d:%02d") % [t / 60, t % 60]
 	elif lluvia and en_exterior:
 		estado_alerta = "¡Partículas!"
 	elif oxigeno < 20.0:
@@ -1105,6 +1303,80 @@ func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 		estado_alerta = "Satisfecho"
 	else:
 		estado_alerta = "Bien"
+
+# --- Globos de pensamiento y linterna -----------------------------------------
+
+func _crear_globo_y_linterna() -> void:
+	_globo = Globo.new()
+	_globo.position = Vector2(9, -30)
+	_globo.z_index = 15
+	_globo.visible = false
+	add_child(_globo)
+	if usar_linterna:
+		_linterna = PointLight2D.new()
+		_linterna.texture = _cono()
+		_linterna.texture_scale = alcance_linterna / (TAM_CONO * 0.5)
+		_linterna.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # luz pixelada
+		_linterna.position = Vector2(0, 6)
+		_linterna.color = Color(1.0, 0.95, 0.8)
+		_linterna.energy = 0.0
+		_linterna.enabled = false
+		add_child(_linterna)
+
+func _actualizar_globo() -> void:
+	if _globo == null:
+		return
+	var con_hambre := hambre >= umbral_globo_hambre
+	var con_sueno := sueno >= umbral_globo_sueno
+	_globo.visible = (con_hambre or con_sueno) and not desmayado and not siendo_llevado and visible
+	if not _globo.visible:
+		return
+	var tipo := Globo.Tipo.COMIDA if con_hambre else Globo.Tipo.SUENO
+	if con_hambre and con_sueno and int(Time.get_ticks_msec() / 1500) % 2 == 1:
+		tipo = Globo.Tipo.SUENO  # con las dos cosas, alterna
+	_globo.set_tipo(tipo)
+
+func _actualizar_linterna(delta: float) -> void:
+	if _linterna == null:
+		return
+	var r := Recursos.de(self)
+	var oscuridad := 1.0 - (r.luz() if r != null else 1.0)
+	var prendida := oscuridad > 0.05 and not en_cama and not desmayado and not siendo_llevado and visible
+	_linterna.enabled = prendida
+	if not prendida:
+		return
+	_linterna.energy = energia_linterna * oscuridad
+	if velocity.length() > 1.0:
+		_dir_linterna = velocity.normalized()
+	_linterna.rotation = lerp_angle(_linterna.rotation, _dir_linterna.angle(), minf(1.0, delta * 10.0))
+	# El cono arranca un poco adelante del cuerpo, no desde el centro
+	_linterna.position = Vector2(0, 6) + Vector2.from_angle(_linterna.rotation) * separacion_linterna
+
+## Cono de luz: vértice en el centro de la textura, abierto hacia la derecha (+x).
+const TAM_CONO := 48  # textura chica con filtro nearest: se ve pixelada
+
+static func _cono() -> ImageTexture:
+	if _textura_cono != null:
+		return _textura_cono
+	var tam := TAM_CONO
+	var img := Image.create(tam, tam, false, Image.FORMAT_RGBA8)
+	var centro := Vector2(tam, tam) * 0.5
+	var apertura := deg_to_rad(28.0)
+	for y in tam:
+		for x in tam:
+			var d := Vector2(x + 0.5, y + 0.5) - centro
+			var dist := d.length() / (tam * 0.5)
+			var a := 0.0
+			if dist <= 1.0:
+				var ang := absf(d.angle())
+				var borde := clampf(1.0 - (ang - apertura * 0.6) / (apertura * 0.4), 0.0, 1.0)
+				var cerca := clampf(1.0 - dist, 0.0, 1.0)
+				a = borde * cerca * cerca
+				a = maxf(a, clampf(1.0 - dist * 6.0, 0.0, 1.0) * 0.6)  # un poco de luz alrededor de los pies
+			a = floorf(a * 4.0 + 0.5) / 4.0  # pocos niveles de brillo: bordes escalonados, estilo pixel
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_textura_cono = ImageTexture.create_from_image(img)
+	return _textura_cono
 
 func _configurar_barra_flotante() -> void:
 	if barra_salud == null:
@@ -1149,6 +1421,8 @@ func mirar(dir_x: float) -> void:
 		return
 	for s in [sprite_cuerpo, sprite_brazo, sprite_cabeza, sprite_casco]:
 		s.flip_h = dir_x < 0.0
+	if velocity.length() <= 1.0:
+		_dir_linterna = Vector2(signf(dir_x), 0.0)
 
 func _actualizar_animaciones(forzar := false) -> void:
 	if desmayado:
@@ -1186,8 +1460,71 @@ func _aplicar_cabeza() -> void:
 	sprite_cabeza.animation = &"Cabezas"
 	sprite_cabeza.frame = int(cabeza)
 
+## Fuera de la base (suelo marciano) se pone el casco; al volver se lo saca.
+func set_afuera(valor: bool) -> void:
+	if valor == afuera:
+		return
+	afuera = valor
+	en_exterior = valor
+	if not con_casco:
+		return
+	# Animación "Casco": cuadro 0 vacío, cuadro 1 el casco puesto
+	if _tween_casco != null:
+		_tween_casco.kill()
+	sprite_casco.stop()
+	sprite_casco.animation = &"Casco"
+	sprite_casco.visible = true
+	_tween_casco = create_tween()
+	if valor:
+		sprite_casco.frame = 0
+		_tween_casco.tween_interval(0.2)
+		_tween_casco.tween_callback(func(): sprite_casco.frame = 1)
+		mostrar_cartel("Casco puesto", 1.0)
+	else:
+		sprite_casco.frame = 1
+		_tween_casco.tween_interval(0.2)
+		_tween_casco.tween_callback(func():
+			sprite_casco.frame = 0
+			sprite_casco.visible = false)
+
 func _aplicar_casco() -> void:
 	sprite_casco.stop()
 	sprite_casco.animation = &"Casco"
-	sprite_casco.frame = 0
-	sprite_casco.visible = con_casco
+	sprite_casco.frame = 1 if afuera else 0
+	sprite_casco.visible = con_casco and afuera
+
+
+## Globo de pensamiento sobre la cabeza: una manzana (hambre) o "Zz" (sueño).
+class Globo extends Node2D:
+	enum Tipo { COMIDA, SUENO }
+	var tipo := Tipo.COMIDA
+	var _t := 0.0
+
+	func set_tipo(t: Tipo) -> void:
+		if t != tipo:
+			tipo = t
+			queue_redraw()
+
+	func _process(delta: float) -> void:
+		_t += delta
+		position.y = -30.0 + sin(_t * 3.0) * 1.0  # flota un poquito
+		queue_redraw()
+
+	func _draw() -> void:
+		var borde := Color(0.15, 0.17, 0.22)
+		var fondo := Color(1, 1, 1, 0.95)
+		# Burbujitas hacia la cabeza y el globo
+		draw_circle(Vector2(-6, 9), 1.6, borde)
+		draw_circle(Vector2(-6, 9), 1.0, fondo)
+		draw_circle(Vector2(-3, 6), 2.4, borde)
+		draw_circle(Vector2(-3, 6), 1.7, fondo)
+		draw_circle(Vector2(3, -2), 7.5, borde)
+		draw_circle(Vector2(3, -2), 6.7, fondo)
+		if tipo == Tipo.COMIDA:
+			draw_circle(Vector2(3, -1), 3.2, Color(0.88, 0.2, 0.2))      # manzana
+			draw_rect(Rect2(2.6, -6.2, 0.9, 2.2), Color(0.4, 0.25, 0.1)) # cabito
+			draw_circle(Vector2(4.6, -5.0), 1.1, Color(0.3, 0.75, 0.3))   # hojita
+		else:
+			var f := ThemeDB.fallback_font
+			draw_string(f, Vector2(-1.5, 1), "Z", HORIZONTAL_ALIGNMENT_LEFT, -1, 7, Color(0.25, 0.35, 0.8))
+			draw_string(f, Vector2(3.5, -2), "z", HORIZONTAL_ALIGNMENT_LEFT, -1, 5, Color(0.25, 0.35, 0.8))

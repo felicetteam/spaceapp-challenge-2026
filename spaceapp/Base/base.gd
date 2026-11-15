@@ -56,9 +56,17 @@ var tripulacion: Array[Personaje] = []
 var maquinas: Array[Maquina] = []
 var indice_activo: int = -1
 var navegacion: Navegacion
+## Grilla de la roomba: solo las paredes la frenan (pasa por debajo de máquinas y muebles).
+var navegacion_roomba: Navegacion
 var recursos: Recursos
 var eventos: Eventos
+# Con preload (y no por su class_name) para no depender de que el editor ya haya registrado
+# la clase: si no, base.gd entero no compila y el juego arranca sin nada.
+const TutorialScript := preload("res://Base/tutorial.gd")
+var tutorial: Node
 var _luz: CanvasModulate
+## Tiles de suelo marciano (afuera de la base): Vector3i(fuente, x, y) del atlas -> true.
+var _tiles_exterior := {}
 
 # Cámara
 var _zoom_objetivo := 1.0
@@ -91,6 +99,7 @@ func _ready() -> void:
 			maquinas.append(nodo)
 
 	_configurar_camara()
+	_detectar_tiles_exterior()
 	if tripulacion.is_empty():
 		return
 
@@ -108,11 +117,19 @@ func _ready() -> void:
 		if p == _activo():
 			_deseleccionar())
 	add_child(eventos)
+
+	tutorial = TutorialScript.new()
+	tutorial.name = "Tutorial"
+	tutorial.base = self
+	tutorial.hud = hud
+	tutorial.eventos = eventos
+	add_child(tutorial)
 	_mostrar_ajustes("Ajustes cargados")
 	for astro in tripulacion:
 		astro.controlado_por_jugador = false
 	hud.marcar_activo(null)
 	_construir_navegacion()
+	tutorial.iniciar()
 
 func _construir_navegacion() -> void:
 	navegacion = Navegacion.new()
@@ -120,8 +137,13 @@ func _construir_navegacion() -> void:
 	add_child(navegacion)
 	for astro in tripulacion:
 		astro.navegacion = navegacion
+	# La roomba tiene su propia grilla: pasa por debajo de máquinas y muebles, pero no
+	# atraviesa paredes (solo la frena el mapa)
+	navegacion_roomba = Navegacion.new()
+	navegacion_roomba.name = "NavegacionRoomba"
+	add_child(navegacion_roomba)
 	for r in get_tree().get_nodes_in_group("roombas"):
-		r.navegacion = navegacion
+		r.navegacion = navegacion_roomba
 
 	# Esperar a que el TileMapLayer cree sus colisiones en el espacio de física
 	await get_tree().physics_frame
@@ -138,6 +160,21 @@ func _construir_navegacion() -> void:
 	for c in get_tree().get_nodes_in_group("comedores"):
 		navegacion.bloquear_rect(c.rect_mesa())
 
+	# Grilla de la roomba: además de los astronautas, ignora los cuerpos de máquinas y muebles
+	var excluir_roomba: Array[RID] = excluir.duplicate()
+	for grupo in ["maquinas", "camas", "comedores", "roombas"]:
+		for n in get_tree().get_nodes_in_group(grupo):
+			_agregar_cuerpos(n, excluir_roomba)
+	navegacion_roomba.construir(tilemap, ref.tamano_pies(), ref.collision_mask, excluir_roomba)
+
+
+## Junta los RID de todos los cuerpos con colisión del nodo y sus hijos.
+func _agregar_cuerpos(nodo: Node, lista: Array[RID]) -> void:
+	if nodo is CollisionObject2D and not lista.has(nodo.get_rid()):
+		lista.append(nodo.get_rid())
+	for hijo in nodo.get_children():
+		_agregar_cuerpos(hijo, lista)
+
 ## Al maximizar o agrandar la ventana, el juego (mundo y HUD) se escala en proporción a
 ## resolucion_base. Con "expand", si la ventana tiene otra proporción se ve un poco más de mapa
 ## en lugar de dejar barras negras.
@@ -147,9 +184,56 @@ func _configurar_pantalla() -> void:
 	ventana.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	ventana.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
 
+## Marca como "afuera" los tiles que son casi todos suelo naranja (Marte) o amarillo. Se calcula mirando
+## los colores de la textura del tileset, así sigue andando si cambian el tileset.
+func _detectar_tiles_exterior() -> void:
+	_tiles_exterior.clear()
+	var ts := tilemap.tile_set
+	if ts == null:
+		return
+	for i in ts.get_source_count():
+		var id := ts.get_source_id(i)
+		var fuente := ts.get_source(id) as TileSetAtlasSource
+		if fuente == null or fuente.texture == null:
+			continue
+		var img := fuente.texture.get_image()
+		if img == null:
+			continue
+		if img.is_compressed():
+			img.decompress()
+		for t in fuente.get_tiles_count():
+			var coords := fuente.get_tile_id(t)
+			var r := fuente.get_tile_texture_region(coords)
+			var naranjas := 0
+			var total := 0
+			for y in range(r.position.y, r.end.y):
+				for x in range(r.position.x, r.end.x):
+					var c := img.get_pixel(x, y)
+					if c.a < 0.5:
+						continue
+					total += 1
+					var naranja := c.r > 0.67 and c.g >= 0.35 and c.g <= 0.69 and c.b < 0.47 and c.r - c.b > 0.35
+					var amarillo := c.r > 0.75 and c.g > 0.6 and c.b < 0.35
+					if naranja or amarillo:
+						naranjas += 1
+			if total > 0 and float(naranjas) / total >= 0.5:
+				_tiles_exterior[Vector3i(id, coords.x, coords.y)] = true
+
+
+## true si en esa posición del mapa hay suelo marciano (afuera de la base).
+func es_exterior(pos: Vector2) -> bool:
+	var celda := tilemap.local_to_map(tilemap.to_local(pos))
+	var id := tilemap.get_cell_source_id(celda)
+	if id == -1:
+		return false
+	var a := tilemap.get_cell_atlas_coords(celda)
+	return _tiles_exterior.has(Vector3i(id, a.x, a.y))
+
+
 func _configurar_camara() -> void:
 	camara.position_smoothing_enabled = true
 	camara.position_smoothing_speed = suavizado_camara
+	camara.limit_smoothed = true  # con suavizado, que frene en el borde y no muestre afuera
 	# Que no muestre lo que está fuera del mapa
 	var mapa := _rect_mapa()
 	camara.limit_left = int(mapa.position.x)
@@ -165,8 +249,10 @@ func _configurar_camara() -> void:
 
 func _process(delta: float) -> void:
 	_actualizar_camara(delta)
+	var lluvia := eventos != null and eventos.lluvia_activa()
 	for astro in tripulacion:
-		astro.actualizar_salud(delta, recursos.oxigeno, recursos.radiacion, false)
+		astro.set_afuera(es_exterior(astro.pies()))
+		astro.actualizar_salud(delta, recursos.oxigeno, recursos.radiacion, lluvia)
 	if _luz != null:
 		_luz.color = color_noche.lerp(Color.WHITE, recursos.luz())
 
@@ -213,6 +299,23 @@ func _actualizar_camara(delta: float) -> void:
 	else:
 		_paneo = _paneo.lerp(Vector2.ZERO, 1.0 - exp(-retorno_paneo * delta))
 	camara.offset = _paneo / camara.zoom
+	_limitar_offset()
+
+## Los límites de la cámara no frenan el offset del paneo por borde: lo recortamos para que
+## nunca se vea fuera del mapa.
+func _limitar_offset() -> void:
+	var mapa := _rect_mapa()
+	var medio := get_viewport().get_visible_rect().size / camara.zoom * 0.5
+	var minimo := mapa.position + medio
+	var maximo := mapa.end - medio
+	if minimo.x > maximo.x:
+		minimo.x = mapa.get_center().x
+		maximo.x = minimo.x
+	if minimo.y > maximo.y:
+		minimo.y = mapa.get_center().y
+		maximo.y = minimo.y
+	var centro := camara.global_position.clamp(minimo, maximo)
+	camara.offset = (centro + camara.offset).clamp(minimo, maximo) - centro
 
 func _hay_seguimiento() -> bool:
 	return _siguiendo and _activo() != null
@@ -243,11 +346,11 @@ func _rect_mapa() -> Rect2:
 	var esquina := tilemap.to_global(Vector2(usado.position) * tam_tile)
 	return Rect2(esquina, Vector2(usado.size) * tam_tile)
 
-## Zoom con el que entra todo el mapa en pantalla.
+## Zoom más alejado posible: el mapa llena la pantalla sin que se vea nada de afuera.
 func _zoom_global() -> float:
 	var vista := get_viewport().get_visible_rect().size
 	var mapa := _rect_mapa().size
-	return minf(vista.x / mapa.x, vista.y / mapa.y)
+	return maxf(vista.x / mapa.x, vista.y / mapa.y)
 
 func _zoom_con_rueda(acercar: bool) -> void:
 	_zoom_objetivo *= paso_zoom if acercar else 1.0 / paso_zoom
@@ -268,6 +371,15 @@ func _enfocar(objetivo: Node2D) -> void:
 	else:
 		_pos_libre = objetivo.global_position
 	_zoom_objetivo = maxf(_zoom_objetivo, zoom_seguimiento)
+
+## Como _enfocar, pero la cámara llega al instante (para el tutorial, con el juego en pausa).
+func enfocar_inmediato(objetivo: Node2D) -> void:
+	_enfocar(objetivo)
+	_zoom_objetivo = clampf(_zoom_objetivo, _zoom_global(), maxf(zoom_maximo, _zoom_global()))
+	camara.zoom = Vector2(_zoom_objetivo, _zoom_objetivo)
+	camara.offset = Vector2.ZERO
+	camara.global_position = _pos_libre.clamp(_rect_mapa().position, _rect_mapa().end)
+	camara.reset_smoothing()
 
 ## Muestra en la salida de Godot (y como aviso en el juego) qué multiplicadores están activos,
 ## para confirmar qué valores de Base/ajustes.gd está usando.
@@ -308,6 +420,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_seleccionar_indice(event.keycode - KEY_1)
+		# Flechas: izquierda/derecha cambian de astronauta (después del último, ninguno);
+		# arriba/abajo recorren las máquinas con problemas (después de la última, vista general)
+		match event.keycode:
+			KEY_RIGHT:
+				_ciclar_astronauta(1)
+			KEY_LEFT:
+				_ciclar_astronauta(-1)
+			KEY_DOWN:
+				_ciclar_maquina(1)
+			KEY_UP:
+				_ciclar_maquina(-1)
 		return
 
 	if event is InputEventMouseButton:
@@ -350,6 +473,9 @@ func _clic_izquierdo(punto: Vector2) -> void:
 	if astro != null:
 		_seleccionar_personaje(astro)
 		return
+	var tocada := _maquina_en(punto)
+	if tocada != null and tutorial != null:
+		tutorial.maquina_tocada(tocada)  # la primera vez explica para qué sirve
 	if activo == null:
 		return  # sin nadie seleccionado, el clic no da órdenes
 	# Clic justo al lado del seleccionado: es un intento de deseleccionar, no de moverlo
@@ -373,8 +499,7 @@ func _clic_izquierdo(punto: Vector2) -> void:
 		if cama.solo_desmayados:
 			activo.mostrar_cartel("Solo para inconscientes")
 		else:
-			activo.ir_a(cama.global_position + cama.offset_personaje)
-			activo.quiere_acostarse = true
+			activo.acostarse_en(cama)  # en medio de un trabajo de evento es una pausa
 		return
 	# 5) Clic en el piso: camina hasta ahí. Si está en una tarea (trabajando o comiendo), el piso
 	#    no lo saca de lo que hace: solo otra máquina, el comedor o una cama pueden interrumpirla.
@@ -407,7 +532,7 @@ func _astronauta_en(punto: Vector2) -> Personaje:
 
 func _maquina_en(punto: Vector2) -> Maquina:
 	for m in maquinas:
-		if m.contiene_punto(punto):
+		if m.seleccionable() and m.contiene_punto(punto):
 			return m
 	return null
 
@@ -425,6 +550,63 @@ func _mandar_a_trabajar(m: Maquina) -> void:
 		hud.agregar_alerta("Seleccioná un astronauta primero", 0)
 
 # --- Selección ---------------------------------------------------------------
+
+var _idx_maquina_foco := -1
+
+## Pasa al astronauta siguiente (paso 1) o anterior (-1). Hay un lugar más: ninguno seleccionado.
+func _ciclar_astronauta(paso: int) -> void:
+	var n := tripulacion.size()
+	if n == 0:
+		return
+	var idx := indice_activo
+	for _i in n + 1:
+		idx += paso
+		if idx >= n:
+			idx = -1
+		elif idx < -1:
+			idx = n - 1
+		if idx == -1:
+			_deseleccionar()
+			_vista_general()
+			return
+		if not (tripulacion[idx].en_evento and tripulacion[idx].evento_fuera):
+			if idx != indice_activo:
+				_seleccionar_indice(idx)
+			return
+
+## Centra la cámara en la máquina con problemas siguiente o anterior (de la peor a la mejor).
+## Después de la última vuelve a la vista general.
+func _ciclar_maquina(paso: int) -> void:
+	var lista: Array[Maquina] = []
+	for m in maquinas:
+		if is_instance_valid(m) and m.tiene_desgaste and m.seleccionable() \
+				and m.mantenimiento < m.umbral_borde:
+			lista.append(m)
+	lista.sort_custom(func(a, b): return a.mantenimiento < b.mantenimiento)
+	if lista.is_empty():
+		_idx_maquina_foco = -1
+		hud.agregar_alerta("Ninguna máquina necesita atención", 0)
+		return
+	_idx_maquina_foco += paso
+	if _idx_maquina_foco >= lista.size():
+		_idx_maquina_foco = -1
+	elif _idx_maquina_foco < -1:
+		_idx_maquina_foco = lista.size() - 1
+	if _idx_maquina_foco == -1:
+		_vista_general()
+		return
+	var m := lista[_idx_maquina_foco]
+	_enfocar(m)
+	hud.agregar_alerta("%s: %d%% (%d/%d)" % [m.nombre_maquina, roundi(m.mantenimiento),
+			_idx_maquina_foco + 1, lista.size()], 0, m)
+
+## Cámara viendo todo el mapa.
+func _vista_general() -> void:
+	_soltar_camara()
+	_ancla_zoom = Vector2.INF
+	_paneo = Vector2.ZERO
+	_pos_libre = _rect_mapa().get_center()
+	_zoom_objetivo = _zoom_global()
 
 ## Seleccionar al que ya estaba seleccionado lo deselecciona.
 func _seleccionar_indice(idx: int) -> void:

@@ -45,7 +45,7 @@ position = Vector2(200, 6)
 cabeza = 0
 
 [node name="Escritorio" parent="." unique_id=1570372049 instance=ExtResource("6_77y2d")]
-position = Vector2(306, -79)
+position = Vector2(301, -81)
 
 [node name="Fotovoltaica" parent="." unique_id=480067823 instance=ExtResource("8_1qkdb")]
 position = Vector2(-187, -140)
@@ -61,7 +61,7 @@ position = Vector2(162, 291)
 
 [node name="comunicaciones" parent="." unique_id=1936745331 instance=ExtResource("9_ka7hq")]
 z_index = 1
-position = Vector2(478, -15)
+position = Vector2(298, -104)
 
 [node name="Rover" parent="." unique_id=1916147968 instance=ExtResource("10_2hat1")]
 position = Vector2(-190, 123)

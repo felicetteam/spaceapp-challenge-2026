@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://Muebles/Escritorio/escritorio.gd" id="2_script"]
 [ext_resource type="Texture2D" uid="uid://c6g7ronswj7r3" path="res://assets/sprites/escritorio.png" id="1_f6cvy"]
+[ext_resource type="Texture2D" uid="uid://d0trmwd2m0vao" path="res://icon.svg" id="3_silla"]
 
 [node name="Escritorio" type="StaticBody2D" unique_id=1570372049]
 script = ExtResource("2_script")
@@ -9,3 +10,9 @@ nombre_maquina = "Escritorio"
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=632436298]
 texture = ExtResource("1_f6cvy")
+
+[node name="Silla" type="Sprite2D" parent="."]
+self_modulate = Color(0.55, 0.55, 0.62, 1)
+position = Vector2(0, 26)
+scale = Vector2(0.11, 0.11)
+texture = ExtResource("3_silla")

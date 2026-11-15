@@ -96,6 +96,10 @@ extends Resource
 @export var intervalo_eventos_min := 150.0
 @export var intervalo_eventos_max := 300.0
 
+@export_group("Tutorial")
+## Muestra el tutorial (ventanas que pausan el juego y explican controles y mecánicas).
+@export var tutorial_activado := true
+
 @export_group("Astronautas")
 ## Velocidad con la que sube el hambre (baja la comida).
 @export var hambre := 1.0

@@ -32,6 +32,8 @@ var _scroll_maquinas: ScrollContainer
 var _alertas: VBoxContainer
 var _maquinas: Array[Maquina] = []
 var _boton_atencion: Button
+var _banners: VBoxContainer
+var _banner_labels := {}  # id -> Label
 var _atencion_linea1: Label
 var _atencion_linea2: Label
 var _idx_atencion := -1
@@ -114,6 +116,16 @@ func _ready() -> void:
 	_alertas.offset_top = 12
 	_alertas.add_theme_constant_override("separation", 4)
 	add_child(_alertas)
+
+	# Arriba al centro: cuánto le queda a los eventos que duran (tormenta, lluvia)
+	_banners = VBoxContainer.new()
+	_banners.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_banners.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_banners.offset_left = -130
+	_banners.offset_right = 130
+	_banners.offset_top = 10
+	_banners.add_theme_constant_override("separation", 4)
+	add_child(_banners)
 
 func _process(_delta: float) -> void:
 	# El scroll de máquinas ocupa lo que haga falta, sin pasarse del borde de la pantalla
@@ -363,6 +375,27 @@ func agregar_alerta(texto: String, nivel: int = 1, objetivo: Node2D = null) -> v
 
 # --- Eventos críticos --------------------------------------------------------
 
+## Cartel arriba al centro (por ejemplo, "Tormenta solar · quedan 2:31"). Se actualiza por id.
+func mostrar_banner(id: String, texto: String) -> void:
+	if not _banner_labels.has(id):
+		var estilo := _estilo_panel()
+		estilo.border_color = Color(1.0, 0.6, 0.25)
+		estilo.set_border_width_all(2)
+		var panel := _crear_panel(estilo, Vector2(260, 0))
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lbl := _label(texto, 11)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.modulate = Color(1.0, 0.85, 0.6)
+		panel.add_child(lbl)
+		_banners.add_child(panel)
+		_banner_labels[id] = lbl
+	_banner_labels[id].text = texto
+
+func quitar_banner(id: String) -> void:
+	if _banner_labels.has(id):
+		_banner_labels[id].get_parent().queue_free()
+		_banner_labels.erase(id)
+
 ## Muestra un evento en el centro de la pantalla con sus dos opciones. El juego está en pausa
 ## mientras tanto; al elegir se llama a `al_elegir` con "opcion_a" u "opcion_b".
 func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_elegir: Callable,
@@ -424,6 +457,52 @@ func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_ele
 	if ev.has("fuente"):
 		vbox.add_child(_texto_evento("Fuente: " + String(ev["fuente"]), 9, Color(0.65, 0.68, 0.75)))
 
+## Ventana del tutorial abajo al centro (el juego está en pausa). Deja ver el mapa detrás,
+## así se nota lo que la cámara está mostrando.
+func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: Callable) -> void:
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.35)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
+	fondo.process_mode = Node.PROCESS_MODE_ALWAYS
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fondo)
+	var caja := VBoxContainer.new()
+	caja.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	caja.offset_bottom = -28
+	caja.alignment = BoxContainer.ALIGNMENT_END
+	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(caja)
+	var centro := CenterContainer.new()
+	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caja.add_child(centro)
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(0.35, 0.85, 1.0)
+	estilo.set_border_width_all(2)
+	estilo.content_margin_left = 16
+	estilo.content_margin_right = 16
+	estilo.content_margin_top = 12
+	estilo.content_margin_bottom = 12
+	var panel := _crear_panel(estilo, Vector2(400, 0))
+	centro.add_child(panel)
+	var vbox := _vbox(8)
+	panel.add_child(vbox)
+	var lbl_titulo := _texto_evento(titulo, 14, Color(0.6, 0.9, 1.0))
+	lbl_titulo.custom_minimum_size = Vector2(368, 0)
+	vbox.add_child(lbl_titulo)
+	var lbl := _texto_evento(texto, 12, Color.WHITE)
+	lbl.custom_minimum_size = Vector2(368, 0)
+	vbox.add_child(lbl)
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.text = boton
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	b.custom_minimum_size = Vector2(110, 30)
+	b.add_theme_font_size_override("font_size", 12)
+	b.pressed.connect(func():
+		fondo.queue_free()
+		al_cerrar.call())
+	vbox.add_child(b)
+
 ## Lista para elegir qué astronauta hace la tarea de un evento (con el juego en pausa).
 func elegir_astronauta(candidatos: Array[Personaje], tarea: String, al_elegir: Callable) -> void:
 	var fondo := ColorRect.new()
@@ -470,7 +549,7 @@ func _texto_evento(texto: String, tam: int, color: Color) -> Label:
 func _maquinas_con_problemas() -> Array[Maquina]:
 	var lista: Array[Maquina] = []
 	for m in _maquinas:
-		if is_instance_valid(m) and m.mantenimiento < m.umbral_borde:
+		if is_instance_valid(m) and m.seleccionable() and m.mantenimiento < m.umbral_borde:
 			lista.append(m)
 	lista.sort_custom(func(a, b): return a.mantenimiento < b.mantenimiento)
 	return lista

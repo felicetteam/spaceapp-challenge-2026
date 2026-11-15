@@ -12,6 +12,11 @@ extends Node
 ##   "al_iniciar": [ {...}, {...} ],         (opcional: efectos que pasan apenas aparece el
 ##                                           evento, antes de elegir; cantidad negativa = baja)
 ##   "consejo": "Cómo se soluciona",         (opcional)
+##   "duracion": 180,                        (opcional: segundos que dura; arriba se ve cuánto queda)
+##   "mientras_dura": [ {...} ],             (opcional: energia/oxigeno/radiacion por segundo
+##                                           mientras dura, por ejemplo +0.08 de radiación)
+##   "lluvia": true,                         (opcional: lluvia de partículas mientras dura: daña
+##                                           a los astronautas que están afuera)
 ##   "estructura": "rover",                  (opcional: a dónde tienen que ir los astronautas)
 ##   "opcion_a": { "texto": "...", "gana": {...}, "pierde": {...},
 ##                 "estructura": "escudo" },  (opcional: otra estructura para esta opción;
@@ -40,6 +45,8 @@ extends Node
 ##   "desbloqueo"                           desbloquea una investigación para el escritorio
 ##                                          (sin investigaciones desbloqueadas no se investiga)
 ##   "posponer"                             { "segundos": 300 }: el evento vuelve más tarde
+##   "apagar:invernadero"                   { "segundos": 60 }: apaga máquinas (por tipo o nombre)
+##                                          y no se pueden reparar durante ese tiempo
 ##   "elegir": el jugador elige qué astronauta va (se abre una lista al tocar la opción).
 ##     Si no hay nadie disponible, la opción queda deshabilitada.
 ##   nombre de un astronauta ("Juan", "Laika", "Feli", "Andy") o "cualquiera" (al azar):
@@ -73,8 +80,12 @@ var _fijados := {}
 ## Decisión tomada, esperando que los astronautas lleguen a la estructura.
 ## { "ev", "clave", "caminantes": Array[Personaje], "t": segundos que quedan de espera }
 var _pendiente: Dictionary = {}
+## Estructura a la que fueron los astronautas en la opción que se está aplicando (o null).
+var _estructura_actual: Node2D = null
 ## Si los astronautas no llegan en este tiempo, la decisión se aplica igual.
 const ESPERA_MAXIMA := 120.0
+## Eventos con duración que siguen activos: { "ev": evento, "t": segundos que quedan }
+var _activos: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -110,6 +121,7 @@ func cargar() -> void:
 func _process(delta: float) -> void:
 	_actualizar_retirados(delta)
 	_revisar_pendiente(delta)
+	_actualizar_activos(delta)
 	for i in range(_pospuestos.size() - 1, -1, -1):
 		_pospuestos[i]["t"] -= delta
 		if _pospuestos[i]["t"] <= 0.0 and not _abierto:
@@ -169,6 +181,17 @@ func lanzar(ev: Dictionary) -> void:
 			var t := _aplicar(efecto, 1)
 			if t != "":
 				iniciales.append(t)
+	# Eventos que duran un rato (tormenta, lluvia): arriba de la pantalla se ve cuánto queda
+	if ev.has("duracion"):
+		var dur := float(ev.get("duracion", 0))
+		var ya := false
+		for a in _activos:
+			if a["ev"] == ev:
+				a["t"] = dur
+				ya = true
+		if not ya:
+			_activos.append({"ev": ev, "t": dur})
+		iniciales.append("Dura %d:%02d" % [int(dur) / 60, int(dur) % 60])
 	get_tree().paused = true
 	evento_iniciado.emit(ev)
 	# Una opción que necesita elegir un astronauta no se puede tomar si no hay nadie disponible
@@ -213,7 +236,8 @@ func _resolver(ev: Dictionary, clave: String) -> void:
 	if en_camino.is_empty():
 		_aplicar_opcion(ev, clave)
 		return
-	_pendiente = {"ev": ev, "clave": clave, "caminantes": en_camino, "t": ESPERA_MAXIMA}
+	_pendiente = {"ev": ev, "clave": clave, "caminantes": en_camino, "t": ESPERA_MAXIMA,
+			"estructura": _mas_cercana(estructuras, en_camino[0].pies())}
 	get_tree().paused = false  # el evento sigue abierto: no salen otros hasta aplicarlo
 	var quienes: PackedStringArray = []
 	for p in en_camino:
@@ -240,8 +264,11 @@ func _revisar_pendiente(delta: float) -> void:
 		if is_instance_valid(p) and p.yendo_a_evento:
 			p.yendo_a_evento = false
 			p.detener()
+	var estructura = _pendiente.get("estructura")
 	_pendiente = {}
+	_estructura_actual = estructura if is_instance_valid(estructura) else null
 	_aplicar_opcion(ev, clave)
+	_estructura_actual = null
 
 
 func _aplicar_opcion(ev: Dictionary, clave: String) -> void:
@@ -449,6 +476,9 @@ func _describir_efecto(efecto: Dictionary, signo: int) -> String:
 	if clave == "posponer":
 		var s := int(efecto.get("segundos", 300))
 		return "Vuelve en %d:%02d" % [s / 60, s % 60]
+	if clave == "apagar":
+		var s := int(efecto.get("segundos", 60))
+		return "%s apagado %d:%02d (sin reparar)" % [detalle.capitalize() if detalle != "" else "Todo", s / 60, s % 60]
 	if NOMBRES_RECURSO.has(clave):
 		var nombre: String = NOMBRES_RECURSO[clave]
 		if detalle != "":
@@ -501,6 +531,10 @@ func _aplicar(efecto: Dictionary, signo: int) -> String:
 		"desbloqueo":
 			if signo > 0:
 				recursos.investigaciones_desbloqueadas += maxi(1, int(efecto.get("cantidad", 1)))
+		"apagar":
+			for m in get_tree().get_nodes_in_group("maquinas"):
+				if _maquina_coincide(m, detalle):
+					m.apagar(float(efecto.get("segundos", 60)))
 		"posponer":
 			if not _ev_actual.is_empty():
 				_pospuestos.append({"ev": _ev_actual, "t": float(efecto.get("segundos", 300))})
@@ -523,25 +557,70 @@ func _aplicar_astronauta(nombre: String, efecto: Dictionary, signo: int) -> Stri
 	var fuera := String(efecto.get("modo", "fuera")) == "fuera"
 	var motivo := String(efecto.get("motivo", "evento"))
 	p.iniciar_evento(fuera, motivo, dur)
-	_retirados.append({"p": p, "t": dur})
+	var entrada := {"p": p, "t": dur}
+	# Explorar en el rover: se sube y el rover sale manejando del mapa (y después vuelve)
+	if fuera and _estructura_actual is Rover and not _estructura_actual.en_exploracion:
+		_estructura_actual.partir(p)
+		entrada["rover"] = _estructura_actual
+	_retirados.append(entrada)
 	astronauta_retirado.emit(p)
 	var d := int(dur)
 	return "%s %s (%s) %d:%02d" % [p.obtener_nombre(), "fuera de la base" if fuera else "ocupado",
 			motivo, d / 60, d % 60]
 
 
+## true mientras dura una lluvia de partículas (base.gd se lo pasa a los astronautas).
+func lluvia_activa() -> bool:
+	for a in _activos:
+		if bool(a["ev"].get("lluvia", false)):
+			return true
+	return false
+
+
+func _actualizar_activos(delta: float) -> void:
+	for i in range(_activos.size() - 1, -1, -1):
+		var a := _activos[i]
+		var ev: Dictionary = a["ev"]
+		var id := String(ev.get("id", ev.get("titulo", "evento")))
+		a["t"] -= delta
+		for efecto in _lista(ev.get("mientras_dura", [])):
+			var clave := _normalizar(String(efecto.get("recurso", "")))
+			if clave in ["energia", "oxigeno", "radiacion"]:
+				var valor := float(recursos.get(clave)) + float(efecto.get("cantidad", 0)) * delta
+				recursos.set(clave, clampf(valor, 0.0, 100.0))
+		if a["t"] <= 0.0:
+			_activos.remove_at(i)
+			hud.quitar_banner(id)
+			hud.agregar_alerta("Terminó: %s" % String(ev.get("titulo", "evento")), 0)
+			continue
+		var t := int(ceilf(a["t"]))
+		hud.mostrar_banner(id, "%s · quedan %d:%02d" % [String(ev.get("titulo", "Evento")), t / 60, t % 60])
+
+
 func _actualizar_retirados(delta: float) -> void:
 	for i in range(_retirados.size() - 1, -1, -1):
 		var r := _retirados[i]
 		var p: Personaje = r["p"]
+		if not is_instance_valid(p):
+			_retirados.remove_at(i)
+			continue
+		if p.en_pausa_evento():
+			continue  # comiendo o durmiendo en medio del trabajo: el tiempo no corre
 		r["t"] -= delta
 		if not is_instance_valid(p):
 			_retirados.remove_at(i)
 			continue
 		p.tiempo_evento = r["t"]
 		if r["t"] <= 0.0:
-			p.terminar_evento()
 			_retirados.remove_at(i)
+			var rover = r.get("rover")
+			if rover != null and is_instance_valid(rover):
+				# Primero vuelve el rover manejando; al llegar, el astronauta se baja
+				rover.volver(func():
+					p.terminar_evento(rover.punto_de_bajada())
+					hud.agregar_alerta("%s volvió de explorar con el rover" % p.obtener_nombre(), 0, p))
+				continue
+			p.terminar_evento()
 			hud.agregar_alerta("%s volvió y está disponible" % p.obtener_nombre(), 0, p)
 
 

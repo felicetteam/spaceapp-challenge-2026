@@ -12,6 +12,14 @@
 				}
 			],
 			"estructura": "escudo",
+			"duracion": 120,
+			"lluvia": true,
+			"mientras_dura": [
+				{
+					"recurso": "radiacion",
+					"cantidad": 0.05
+				}
+			],
 			"opcion_a": {
 				"texto": "Reforzar el blindaje y quedarse adentro",
 				"gana": {
@@ -54,6 +62,13 @@
 				}
 			],
 			"estructura": "escudo",
+			"duracion": 180,
+			"mientras_dura": [
+				{
+					"recurso": "radiacion",
+					"cantidad": 0.08
+				}
+			],
 			"opcion_a": {
 				"texto": "Reforzar el blindaje y esperar adentro",
 				"gana": {
@@ -98,10 +113,16 @@
 					"recurso": "energia",
 					"cantidad": 20
 				},
-				"pierde": {
-					"recurso": "mantenimiento:invernadero",
-					"cantidad": 30
-				},
+				"pierde": [
+					{
+						"recurso": "mantenimiento:invernadero",
+						"cantidad": 30
+					},
+					{
+						"recurso": "apagar:invernadero",
+						"segundos": 60
+					}
+				],
 				"estructura": "invernadero"
 			},
 			"opcion_b": {
