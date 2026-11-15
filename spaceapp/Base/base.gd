@@ -137,9 +137,9 @@ func _ready() -> void:
 	# El tutorial arranca recién con la grilla de caminos lista: si pausa antes, la grilla se
 	# arma sin colisiones y los astronautas no encuentran el camino a las máquinas.
 	await _construir_navegacion()
-	tutorial.iniciar()
-	if escritorio and interfaz_escritorio:
+	if escritorio != null and interfaz_escritorio != null:
 		escritorio.interfaz_solicitada.connect(interfaz_escritorio.abrir)
+	tutorial.iniciar()
 
 func _construir_navegacion() -> void:
 	navegacion = Navegacion.new()

@@ -3,9 +3,9 @@ extends Control
 
 signal cerrada
 
-@onready var boton_apagar: Button = $ContenedorProporcion/FondoComputadora/BotonApagarGabinete
-@onready var titulo_terminal: Label = $ContenedorProporcion/FondoComputadora/AreaPantalla/MarginContainer/VBoxContainer/TituloTerminal
-@onready var barra_investigacion: ProgressBar = $ContenedorProporcion/FondoComputadora/AreaPantalla/MarginContainer/VBoxContainer/BarraInvestigacion
+@onready var boton_apagar: Button = $ContenedorProporcion/FondoCompu/BotonApagado
+@onready var titulo_terminal: Label = $ContenedorProporcion/FondoCompu/AreaPantalla/MarginContainer/VBoxContainer/TituloTerminal
+@onready var barra_investigacion: ProgressBar = $ContenedorProporcion/FondoCompu/AreaPantalla/MarginContainer/VBoxContainer/BarraInvestigacion
 
 var escritorio_actual: Escritorio = null
 var personaje_actual: Personaje = null
