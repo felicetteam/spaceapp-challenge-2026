@@ -62,6 +62,8 @@ signal astronauta_retirado(personaje: Personaje)
 const RUTA := "res://Eventos/eventos_criticos.json"
 
 var hud: Node
+## Mientras el tutorial está mostrando algo, no salen eventos nuevos (se ven mal encima).
+var tutorial: Node = null
 var recursos: Recursos
 var tripulacion: Array[Personaje] = []
 
@@ -118,10 +120,21 @@ func cargar() -> void:
 	print("Eventos críticos cargados: %d" % _eventos.size())
 
 
+## true mientras hay un evento en pantalla o esperando que los astronautas lleguen.
+func ocupado() -> bool:
+	return _abierto
+
+
 func _process(delta: float) -> void:
 	_actualizar_retirados(delta)
 	_revisar_pendiente(delta)
 	_actualizar_activos(delta)
+	# Con el tutorial explicando algo, los eventos esperan (y dejan unos segundos al terminar)
+	if tutorial != null and tutorial.ocupado():
+		_t = maxf(_t, 8.0)
+		for p in _pospuestos:
+			p["t"] = maxf(p["t"], 8.0)
+		return
 	for i in range(_pospuestos.size() - 1, -1, -1):
 		_pospuestos[i]["t"] -= delta
 		if _pospuestos[i]["t"] <= 0.0 and not _abierto:

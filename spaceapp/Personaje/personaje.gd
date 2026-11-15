@@ -856,6 +856,13 @@ func _proceso_trabajo(delta: float) -> void:
 		return
 	if not _en_puesto:
 		if _seguir_camino(delta):
+			if _lejos_del_puesto():
+				# Sin camino calculado (por ejemplo, la grilla todavía no estaba): reintenta
+				_t_puesto -= delta
+				if _t_puesto <= 0.0:
+					_t_puesto = 0.5
+					_ir_a_puesto_nuevo()
+				return
 			_empezar_en_puesto()
 		return
 
@@ -887,6 +894,15 @@ func _proceso_uso(delta: float) -> void:
 		return
 	velocity = Vector2.ZERO
 	mueble_actual.proceso_uso(self, delta)
+
+## true si "llegó" pero en realidad está lejos de la máquina (o de la silla del escritorio).
+func _lejos_del_puesto() -> bool:
+	if maquina_actual == null:
+		return false
+	var escritorio := maquina_actual.escritorio_de_silla()
+	if escritorio != null:
+		return pies().distance_to(escritorio.posicion_silla()) > 10.0
+	return not maquina_actual.rect_global().grow(margen_trabajo_max + 8.0).has_point(pies())
 
 func _empezar_en_puesto() -> void:
 	_en_puesto = true

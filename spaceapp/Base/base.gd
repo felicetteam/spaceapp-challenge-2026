@@ -64,6 +64,9 @@ var eventos: Eventos
 # la clase: si no, base.gd entero no compila y el juego arranca sin nada.
 const TutorialScript := preload("res://Base/tutorial.gd")
 var tutorial: Node
+## Para el tutorial: si el jugador ya usó la rueda del mouse y arrastró el mapa.
+var uso_rueda := false
+var uso_arrastre := false
 var _luz: CanvasModulate
 ## Tiles de suelo marciano (afuera de la base): Vector3i(fuente, x, y) del atlas -> true.
 var _tiles_exterior := {}
@@ -124,11 +127,14 @@ func _ready() -> void:
 	tutorial.hud = hud
 	tutorial.eventos = eventos
 	add_child(tutorial)
+	eventos.tutorial = tutorial  # no salen eventos mientras el tutorial explica algo
 	_mostrar_ajustes("Ajustes cargados")
 	for astro in tripulacion:
 		astro.controlado_por_jugador = false
 	hud.marcar_activo(null)
-	_construir_navegacion()
+	# El tutorial arranca recién con la grilla de caminos lista: si pausa antes, la grilla se
+	# arma sin colisiones y los astronautas no encuentran el camino a las máquinas.
+	await _construir_navegacion()
 	tutorial.iniciar()
 
 func _construir_navegacion() -> void:
@@ -353,6 +359,7 @@ func _zoom_global() -> float:
 	return maxf(vista.x / mapa.x, vista.y / mapa.y)
 
 func _zoom_con_rueda(acercar: bool) -> void:
+	uso_rueda = true
 	_zoom_objetivo *= paso_zoom if acercar else 1.0 / paso_zoom
 	_ancla_zoom = get_global_mouse_position()
 	# Acercarse con alguien seleccionado vuelve a seguirlo
@@ -371,6 +378,17 @@ func _enfocar(objetivo: Node2D) -> void:
 	else:
 		_pos_libre = objetivo.global_position
 	_zoom_objetivo = maxf(_zoom_objetivo, zoom_seguimiento)
+
+## La cámara vuelve a seguir al astronauta elegido (para el tutorial).
+func seguir_activo() -> void:
+	if _activo() != null:
+		_siguiendo = true
+		_paneo = Vector2.ZERO
+		_zoom_objetivo = maxf(_zoom_objetivo, zoom_seguimiento)
+
+## Centra la cámara en algo, moviéndose suave (para el tutorial).
+func enfocar(objetivo: Node2D) -> void:
+	_enfocar(objetivo)
 
 ## Como _enfocar, pero la cámara llega al instante (para el tutorial, con el juego en pausa).
 func enfocar_inmediato(objetivo: Node2D) -> void:
@@ -450,6 +468,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_apretado = false
 					if _arrastrando:
 						_arrastrando = false
+						uso_arrastre = true  # (tutorial) cuenta recién cuando suelta el arrastre
 					else:
 						_clic_izquierdo(get_global_mouse_position())
 			MOUSE_BUTTON_RIGHT:
@@ -600,7 +619,10 @@ func _ciclar_maquina(paso: int) -> void:
 	hud.agregar_alerta("%s: %d%% (%d/%d)" % [m.nombre_maquina, roundi(m.mantenimiento),
 			_idx_maquina_foco + 1, lista.size()], 0, m)
 
-## Cámara viendo todo el mapa.
+## Cámara viendo todo el mapa (también la usa el tutorial al terminar).
+func vista_general() -> void:
+	_vista_general()
+
 func _vista_general() -> void:
 	_soltar_camara()
 	_ancla_zoom = Vector2.INF

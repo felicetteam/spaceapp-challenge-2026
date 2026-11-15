@@ -10,6 +10,9 @@ signal enfocar(objetivo: Node2D)
 
 ## Ancho fijo de la columna izquierda: no crece con los textos largos (esos se desplazan).
 const ANCHO_TARJETA := 188
+## Orden de dibujo del tutorial: el foco oscuro va sobre el HUD y las ventanas sobre el foco.
+const Z_FOCO := 50
+const Z_TUTORIAL := 60
 
 @onready var contenedor: VBoxContainer = $Columna/ContenedorTripulacion
 @onready var titulo_mantenimiento: Label = $Columna/TituloMantenimiento
@@ -33,6 +36,12 @@ var _alertas: VBoxContainer
 var _maquinas: Array[Maquina] = []
 var _boton_atencion: Button
 var _banners: VBoxContainer
+# Tutorial: instrucción (sin pausar) y foco oscuro alrededor de la zona indicada
+var _foco: ColorRect
+var _foco_mat: ShaderMaterial
+var _instruccion: PanelContainer
+var _lbl_instr: Label
+var _lbl_progreso: Label
 var _banner_labels := {}  # id -> Label
 var _atencion_linea1: Label
 var _atencion_linea2: Label
@@ -459,9 +468,11 @@ func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_ele
 
 ## Ventana del tutorial abajo al centro (el juego está en pausa). Deja ver el mapa detrás,
 ## así se nota lo que la cámara está mostrando.
-func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: Callable) -> void:
+func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: Callable,
+		oscurecer := true) -> void:
 	var fondo := ColorRect.new()
-	fondo.color = Color(0, 0, 0, 0.35)
+	fondo.color = Color(0, 0, 0, 0.35 if oscurecer else 0.0)  # con foco, el foco ya oscurece
+	fondo.z_index = Z_TUTORIAL
 	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
 	fondo.process_mode = Node.PROCESS_MODE_ALWAYS
 	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -502,6 +513,97 @@ func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: C
 		fondo.queue_free()
 		al_cerrar.call())
 	vbox.add_child(b)
+
+## Instrucción del tutorial abajo al centro. No pausa ni bloquea el mouse: hay que hacer lo
+## que dice para avanzar. al_omitir se llama si el jugador toca "Omitir".
+## boton: "Omitir" (chico, para las tareas) u "Ok" (para los avisos de máquinas).
+func mostrar_instruccion(titulo: String, texto: String, al_omitir: Callable, boton := "Omitir") -> void:
+	ocultar_instruccion()
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(0.35, 0.85, 1.0)
+	estilo.set_border_width_all(2)
+	estilo.content_margin_left = 14
+	estilo.content_margin_right = 14
+	estilo.content_margin_top = 10
+	estilo.content_margin_bottom = 10
+	_instruccion = _crear_panel(estilo, Vector2(400, 0))
+	_instruccion.z_index = Z_TUTORIAL
+	_instruccion.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_instruccion.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_instruccion.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_instruccion.offset_left = -200
+	_instruccion.offset_right = 200
+	_instruccion.offset_bottom = -28
+	var vbox := _vbox(6)
+	_instruccion.add_child(vbox)
+	var t := _texto_evento(titulo, 13, Color(0.6, 0.9, 1.0))
+	t.custom_minimum_size = Vector2(372, 0)
+	vbox.add_child(t)
+	_lbl_instr = _texto_evento(texto, 12, Color.WHITE)
+	_lbl_instr.custom_minimum_size = Vector2(372, 0)
+	vbox.add_child(_lbl_instr)
+	var fila := _hbox(8)
+	vbox.add_child(fila)
+	_lbl_progreso = _label("", 11)
+	_lbl_progreso.modulate = Color(0.6, 0.95, 0.65)
+	_lbl_progreso.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	fila.add_child(_lbl_progreso)
+	var omitir := Button.new()
+	omitir.focus_mode = Control.FOCUS_NONE
+	omitir.text = boton
+	if boton == "Omitir":
+		omitir.flat = true
+		omitir.add_theme_font_size_override("font_size", 10)
+		omitir.modulate = Color(0.75, 0.78, 0.85)
+	else:
+		omitir.custom_minimum_size = Vector2(80, 26)
+		omitir.add_theme_font_size_override("font_size", 12)
+	omitir.pressed.connect(func(): al_omitir.call())
+	fila.add_child(omitir)
+	add_child(_instruccion)
+
+func progreso_instruccion(texto: String) -> void:
+	if _lbl_progreso != null and is_instance_valid(_lbl_progreso):
+		_lbl_progreso.text = texto
+
+func ocultar_instruccion() -> void:
+	if _instruccion != null and is_instance_valid(_instruccion):
+		_instruccion.queue_free()
+	_instruccion = null
+	_lbl_progreso = null
+	poner_foco(Rect2(), false)
+
+## Rectángulo en pantalla de la fila y la barra de un recurso ("energia", "oxigeno",
+## "radiacion"). Si las barras no se ven (sin comunicaciones), el panel de recursos.
+func rect_recurso(clave: String) -> Rect2:
+	if _barras_recursos.has(clave) and _caja_barras.visible:
+		var ui: Dictionary = _barras_recursos[clave]
+		var fila: Control = ui["lbl"].get_parent()
+		return fila.get_global_rect().merge(ui["barra"].get_global_rect()).grow(3.0)
+	return _panel_recursos.get_global_rect()
+
+## Rectángulo en pantalla de las tarjetas de la tripulación.
+func rect_tripulacion() -> Rect2:
+	return contenedor.get_global_rect().grow(3.0)
+
+## Oscurece todo menos el rectángulo (en coordenadas de pantalla). No bloquea los clics.
+func poner_foco(rect: Rect2, activo: bool) -> void:
+	if _foco == null:
+		_foco = ColorRect.new()
+		_foco.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_foco.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_foco_mat = ShaderMaterial.new()
+		_foco_mat.shader = preload("res://Base/shaders/foco_tutorial.gdshader")
+		_foco.material = _foco_mat
+		_foco.z_index = Z_FOCO  # encima del HUD (para poder destacar recursos), debajo del tutorial
+		add_child(_foco)
+	_foco.visible = activo
+	if not activo:
+		return
+	var tam := get_viewport().get_visible_rect().size
+	_foco_mat.set_shader_parameter("tam_pantalla", tam)
+	_foco_mat.set_shader_parameter("zona", Vector4(rect.position.x / tam.x, rect.position.y / tam.y,
+			rect.size.x / tam.x, rect.size.y / tam.y))
 
 ## Lista para elegir qué astronauta hace la tarea de un evento (con el juego en pausa).
 func elegir_astronauta(candidatos: Array[Personaje], tarea: String, al_elegir: Callable) -> void:
