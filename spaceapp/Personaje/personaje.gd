@@ -226,6 +226,7 @@ func _ready() -> void:
 	_configurar_barra_flotante()
 	_crear_cartel_y_sonido()
 	_crear_globo_y_linterna()
+	_sacar_de_la_luz.call_deferred()
 	_actualizar_animaciones(true)
 
 func _process(delta: float) -> void:
@@ -1134,7 +1135,9 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 		estado_alerta = "Fuera %d:%02d" % [t / 60, t % 60]
 		estado_actualizado.emit(self)
 		return
-	var factor_afin := afinidad("salud")
+	# El gasto de comida y energía queda multiplicado por el valor de la tabla (0.8 = gasta
+	# 20% menos), porque afinidad() ya devuelve la inversa
+	var factor_afin := 1.0 / maxf(afinidad("salud"), 0.01)
 
 	# 1. El oxígeno marca qué tan rápido baja la vida: con 100% es normal, con 0% va 5 veces más rápido
 	var mult_o2 := 1.0 + (100.0 - oxigeno) / 25.0
@@ -1281,8 +1284,10 @@ func comer(cantidad: float = 40.0, bonus_calidad: float = 0.0) -> void:
 	dano_ambiental = maxf(0.0, dano_ambiental - bonus_calidad)
 
 ## Multiplicador de Personaje/afinidades.gd: "salud", "trabajo" o "investigacion".
+## Multiplicador efectivo (más de 1 = mejor): la tabla de Personaje/afinidades.gd dice por
+## cuánto se divide (0.8 = trabaja 1/0.8 = 25% más rápido; 1.15 = 13% más lento).
 func afinidad(tipo: String) -> float:
-	return Afinidades.de(obtener_nombre(), tipo)
+	return 1.0 / maxf(Afinidades.de(obtener_nombre(), tipo), 0.01)
 
 func obtener_nombre() -> String:
 	return NOMBRES.get(cabeza, "Astronauta")
@@ -1536,6 +1541,45 @@ func _aplicar_casco() -> void:
 	sprite_casco.animation = &"Casco"
 	sprite_casco.frame = 1 if afuera else 0
 	sprite_casco.visible = con_casco and afuera
+
+
+## Los globos de pensamiento y los carteles de texto no se tiñen de noche ni los ilumina la
+## linterna: van en una capa aparte (CapaSinLuz) que sigue a la cámara, fuera del alcance del
+## CanvasModulate del día y la noche. Un Seguidor los mantiene sobre la cabeza del personaje.
+func _sacar_de_la_luz() -> void:
+	var escena := get_tree().current_scene
+	if escena == null:
+		return
+	var capa := escena.get_node_or_null("CapaSinLuz") as CanvasLayer
+	if capa == null:
+		capa = CanvasLayer.new()
+		capa.name = "CapaSinLuz"
+		capa.layer = 1                     # sobre el mundo (el HUD va en la capa 2)
+		capa.follow_viewport_enabled = true  # usa la misma cámara que el mapa
+		escena.add_child(capa)
+	var seguidor := Seguidor.new()
+	seguidor.ancla = self
+	seguidor.name = "Textos_" + String(name)
+	capa.add_child(seguidor)
+	for n in [_globo, _cartel]:
+		if n != null and n.get_parent() == self:
+			n.reparent(seguidor, false)  # mantiene su posición relativa a la cabeza
+	seguidor.seguir()
+
+
+## Sigue la posición (no el giro) de su personaje y se oculta con él.
+class Seguidor extends Node2D:
+	var ancla: Node2D
+
+	func _process(_delta: float) -> void:
+		seguir()
+
+	func seguir() -> void:
+		if not is_instance_valid(ancla) or not ancla.is_inside_tree():
+			queue_free()
+			return
+		global_position = ancla.global_position
+		visible = ancla.is_visible_in_tree()
 
 
 ## Globo de pensamiento sobre la cabeza: una manzana (hambre) o "Zz" (sueño).

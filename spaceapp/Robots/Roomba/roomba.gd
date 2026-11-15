@@ -186,8 +186,6 @@ func _avanzar(delta: float) -> bool:
 			paso -= dif.length()
 			_idx += 1
 		else:
-			global_position += dif.normalized() * paso
-			if _sprite != null:
-				_sprite.rotation = dif.angle()
+			global_position += dif.normalized() * paso  # (el sprite no gira al moverse)
 			return false
 	return true

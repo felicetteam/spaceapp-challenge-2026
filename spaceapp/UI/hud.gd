@@ -7,6 +7,12 @@ signal astronauta_clicado(personaje: Personaje)
 signal maquina_clicada(maquina: Maquina)
 ## Pide centrar la cámara en algo (una máquina con problemas, el objeto de una alerta).
 signal enfocar(objetivo: Node2D)
+## Barra de zoom de la derecha (para jugar sin rueda): 0 = todo el mapa, 1 = lo más cerca.
+signal zoom_pedido(t: float)
+## Botones de pausa y play de abajo a la izquierda.
+signal pausa_pedida(pausar: bool)
+## Botón de exploraciones pendientes (abajo a la derecha).
+signal exploracion_pedida
 
 ## Ancho fijo de la columna izquierda: no crece con los textos largos (esos se desplazan).
 const ANCHO_TARJETA := 188
@@ -46,8 +52,19 @@ var _banner_labels := {}  # id -> Label
 var _atencion_linea1: Label
 var _atencion_linea2: Label
 var _idx_atencion := -1
+# Barra de zoom y controles de velocidad
+var _barra_zoom: VSlider
+var _boton_pausa: Button
+var _boton_play: Button
+var _lbl_velocidad: Label
+var _boton_exploracion: Button
+## Diario de la partida (lo asigna base.gd): lo muestra la ventana de Información.
+var diario: Node = null
+const VentanaInfo := preload("res://UI/ventana_info.gd")
+var _ventana_info: Control = null
 
 func _ready() -> void:
+	layer = maxi(layer, 2)  # por encima de la capa de globos y carteles (CapaSinLuz, capa 1)
 	var columna := $Columna as VBoxContainer
 
 	# Panel de recursos arriba de todo
@@ -136,12 +153,240 @@ func _ready() -> void:
 	_banners.add_theme_constant_override("separation", 4)
 	add_child(_banners)
 
+	_crear_barra_zoom()
+	_crear_controles_velocidad()
+	_crear_boton_exploracion()
+
+
+## Abajo a la derecha: aparece mientras haya exploraciones esperando y se puede tocar siempre.
+func _crear_boton_exploracion() -> void:
+	_boton_exploracion = Button.new()
+	_boton_exploracion.focus_mode = Control.FOCUS_NONE
+	_boton_exploracion.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_boton_exploracion.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_boton_exploracion.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_boton_exploracion.offset_right = -12
+	_boton_exploracion.offset_bottom = -12
+	_boton_exploracion.custom_minimum_size = Vector2(170, 34)
+	_boton_exploracion.add_theme_font_size_override("font_size", 12)
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(1.0, 0.8, 0.3)
+	estilo.set_border_width_all(2)
+	for estado in ["normal", "hover", "pressed"]:
+		_boton_exploracion.add_theme_stylebox_override(estado, estilo)
+	_boton_exploracion.tooltip_text = "Elegir quién sale a explorar con el rover"
+	_boton_exploracion.visible = false
+	_boton_exploracion.pressed.connect(func(): exploracion_pedida.emit())
+	add_child(_boton_exploracion)
+
+
+func mostrar_exploraciones_pendientes(cantidad: int) -> void:
+	if _boton_exploracion == null:
+		return
+	_boton_exploracion.visible = cantidad > 0
+	_boton_exploracion.text = "Exploración pendiente" if cantidad <= 1 \
+			else "Exploraciones pendientes (%d)" % cantidad
+
+
+## Rectángulo en pantalla del botón de exploraciones (para el tutorial).
+func rect_exploracion() -> Rect2:
+	if _boton_exploracion == null or not _boton_exploracion.visible:
+		return Rect2()
+	return _boton_exploracion.get_global_rect().grow(3.0)
+
+
+## Ventana para elegir quién sale a explorar. candidatos: [{ "p": Personaje, "motivo": "" }]
+## (motivo distinto de "" = no puede ir y su botón queda deshabilitado). "Salir" la cierra sin
+## elegir: la exploración sigue pendiente.
+func mostrar_exploracion(titulo: String, texto: String, candidatos: Array[Dictionary], aviso: String,
+		al_elegir: Callable, al_salir: Callable) -> void:
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.6)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
+	fondo.process_mode = Node.PROCESS_MODE_ALWAYS
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fondo)
+	var centro := CenterContainer.new()
+	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(centro)
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(1.0, 0.8, 0.3)
+	estilo.set_border_width_all(2)
+	estilo.content_margin_left = 16
+	estilo.content_margin_right = 16
+	estilo.content_margin_top = 12
+	estilo.content_margin_bottom = 12
+	var panel := _crear_panel(estilo, Vector2(420, 0))
+	centro.add_child(panel)
+	var vbox := _vbox(8)
+	panel.add_child(vbox)
+	var lbl_titulo := _texto_evento("EXPLORACIÓN · %s" % titulo.to_upper(), 14, Color(1.0, 0.85, 0.45))
+	vbox.add_child(lbl_titulo)
+	vbox.add_child(_texto_evento(texto, 12, Color.WHITE))
+	if aviso != "":
+		vbox.add_child(_texto_evento(aviso, 11, Color(1.0, 0.6, 0.5)))
+	vbox.add_child(_texto_evento("¿Quién sale?", 12, Color(0.6, 0.9, 1.0)))
+	for c in candidatos:
+		var p: Personaje = c["p"]
+		var motivo := String(c.get("motivo", ""))
+		var boton := Button.new()
+		boton.focus_mode = Control.FOCUS_NONE
+		boton.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		boton.text = "%s · salud %d%% · energía %d%%" % [p.obtener_nombre(), roundi(p.salud),
+				roundi(100.0 - p.sueno)]
+		if motivo != "" and motivo != aviso:
+			boton.text += "\nNo puede: " + motivo
+		boton.disabled = motivo != ""
+		boton.custom_minimum_size = Vector2(388, 32)
+		boton.add_theme_font_size_override("font_size", 11)
+		boton.pressed.connect(func():
+			fondo.queue_free()
+			al_elegir.call(p))
+		vbox.add_child(boton)
+	var salir := Button.new()
+	salir.focus_mode = Control.FOCUS_NONE
+	salir.text = "Salir"
+	salir.size_flags_horizontal = Control.SIZE_SHRINK_END
+	salir.custom_minimum_size = Vector2(110, 30)
+	salir.add_theme_font_size_override("font_size", 12)
+	salir.pressed.connect(func():
+		fondo.queue_free()
+		al_salir.call())
+	vbox.add_child(salir)
+
+
+## Barra vertical a la derecha, a media altura: arrastrarla hace zoom. Los botones + y −
+## acercan y alejan de a un paso.
+func _crear_barra_zoom() -> void:
+	var panel := _crear_panel(_estilo_panel(), Vector2(30, 0))
+	panel.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	panel.offset_left = -42
+	panel.offset_right = -12
+	panel.offset_top = -100
+	panel.offset_bottom = 100
+	panel.tooltip_text = "Zoom: arrastrá la barra"
+	add_child(panel)
+	var caja := _vbox(4)
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(caja)
+	var mas := _boton_chico("+")
+	mas.pressed.connect(func(): zoom_pedido.emit(clampf(_barra_zoom.value + 0.1, 0.0, 1.0)))
+	caja.add_child(mas)
+	_barra_zoom = VSlider.new()
+	_barra_zoom.min_value = 0.0
+	_barra_zoom.max_value = 1.0
+	_barra_zoom.step = 0.001
+	_barra_zoom.focus_mode = Control.FOCUS_NONE
+	_barra_zoom.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_barra_zoom.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_barra_zoom.custom_minimum_size = Vector2(16, 120)
+	_barra_zoom.value_changed.connect(func(v: float): zoom_pedido.emit(v))
+	caja.add_child(_barra_zoom)
+	var menos := _boton_chico("-")
+	menos.pressed.connect(func(): zoom_pedido.emit(clampf(_barra_zoom.value - 0.1, 0.0, 1.0)))
+	caja.add_child(menos)
+
+
+## La base informa el zoom actual (0..1) para que la barra lo muestre.
+func mostrar_zoom(t: float) -> void:
+	if _barra_zoom != null:
+		_barra_zoom.set_value_no_signal(clampf(t, 0.0, 1.0))
+
+
+## Pausa y play abajo a la izquierda; al lado, un aviso cuando el tiempo va acelerado.
+func _crear_controles_velocidad() -> void:
+	var panel := _crear_panel(_estilo_panel(), Vector2(0, 0))
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.offset_left = 12
+	panel.offset_bottom = -12
+	add_child(panel)
+	var fila := _hbox(4)
+	panel.add_child(fila)
+	_boton_pausa = _boton_chico("")
+	_boton_pausa.icon = _icono(false)
+	_boton_pausa.tooltip_text = "Pausa (podés seguir dando órdenes)"
+	_boton_pausa.pressed.connect(func(): pausa_pedida.emit(true))
+	fila.add_child(_boton_pausa)
+	_boton_play = _boton_chico("")
+	_boton_play.icon = _icono(true)
+	_boton_play.tooltip_text = "Play"
+	_boton_play.pressed.connect(func(): pausa_pedida.emit(false))
+	fila.add_child(_boton_play)
+	var info := _boton_chico("Información")
+	info.add_theme_font_size_override("font_size", 11)
+	info.tooltip_text = "Base (máquinas y mecánicas) y Diario (investigaciones)"
+	info.pressed.connect(abrir_info)
+	fila.add_child(info)
+	_lbl_velocidad = _label("", 10)
+	_lbl_velocidad.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	fila.add_child(_lbl_velocidad)
+
+
+## Abre la ventana de Información (carpetas Base y Diario). No pausa el juego.
+func abrir_info() -> void:
+	if _ventana_info != null and is_instance_valid(_ventana_info):
+		return
+	_ventana_info = VentanaInfo.new()
+	_ventana_info.diario = diario
+	_ventana_info.z_index = 40  # sobre el HUD, debajo del tutorial
+	add_child(_ventana_info)
+
+
+func cerrar_info() -> void:
+	if _ventana_info != null and is_instance_valid(_ventana_info):
+		_ventana_info.queue_free()
+	_ventana_info = null
+
+
+func mostrar_velocidad(pausado: bool, acelerado: bool) -> void:
+	if _boton_pausa == null:
+		return
+	_boton_pausa.modulate = Color(0.55, 0.9, 1.0) if pausado else Color(0.8, 0.82, 0.88)
+	_boton_play.modulate = Color(0.55, 0.9, 1.0) if not pausado else Color(0.8, 0.82, 0.88)
+	if pausado:
+		_lbl_velocidad.text = "En pausa"
+	elif acelerado:
+		_lbl_velocidad.text = "x3 · todos duermen"
+	else:
+		_lbl_velocidad.text = ""
+	_lbl_velocidad.visible = _lbl_velocidad.text != ""
+
+
+func _boton_chico(texto: String) -> Button:
+	var b := Button.new()
+	b.text = texto
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(24, 24)
+	b.add_theme_font_size_override("font_size", 14)
+	return b
+
+
+## Ícono dibujado por código (la fuente no trae los símbolos de pausa y play).
+func _icono(play: bool) -> ImageTexture:
+	var img := Image.create(12, 12, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for y in 12:
+		for x in 12:
+			var lleno := false
+			if play:
+				# Triángulo apuntando a la derecha
+				lleno = x >= 2 and x <= 10 and absf(y - 5.5) <= (10.5 - x) * 0.62
+			else:
+				lleno = y >= 1 and y <= 10 and ((x >= 2 and x <= 4) or (x >= 7 and x <= 9))
+			if lleno:
+				img.set_pixel(x, y, Color.WHITE)
+	return ImageTexture.create_from_image(img)
+
 func _process(_delta: float) -> void:
 	# El scroll de máquinas ocupa lo que haga falta, sin pasarse del borde de la pantalla
 	if _scroll_maquinas == null:
 		return
 	var alto_contenido := contenedor_maquinas.get_combined_minimum_size().y
-	var disponible := get_viewport().get_visible_rect().size.y - _scroll_maquinas.global_position.y - 12.0
+	var disponible := get_viewport().get_visible_rect().size.y - _scroll_maquinas.global_position.y - 52.0  # deja lugar a pausa/play
 	_scroll_maquinas.custom_minimum_size.y = clampf(alto_contenido, 0.0, maxf(disponible, 60.0))
 
 func inicializar(tripulacion: Array[Personaje], maquinas: Array[Maquina] = [], recursos: Recursos = null) -> void:
@@ -409,6 +654,7 @@ func quitar_banner(id: String) -> void:
 ## mientras tanto; al elegir se llama a `al_elegir` con "opcion_a" u "opcion_b".
 func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_elegir: Callable,
 		efectos_iniciales: String = "", bloqueadas: Array[String] = []) -> void:
+	cerrar_info()  # el evento tiene que verse
 	var fondo := ColorRect.new()
 	fondo.color = Color(0, 0, 0, 0.6)
 	fondo.mouse_filter = Control.MOUSE_FILTER_STOP  # bloquea los clics al mapa
@@ -459,19 +705,17 @@ func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_ele
 			fondo.queue_free()
 			al_elegir.call(clave))
 		vbox.add_child(boton)
-
-	# Dato real de la NASA y su fuente
-	if ev.has("dato_nasa"):
-		vbox.add_child(_texto_evento("Dato real de la NASA: " + String(ev["dato_nasa"]), 10, Color(0.6, 0.8, 1.0)))
-	if ev.has("fuente"):
-		vbox.add_child(_texto_evento("Fuente: " + String(ev["fuente"]), 9, Color(0.65, 0.68, 0.75)))
+	# (Los datos curiosos de la NASA ya no se muestran en la ventana del evento)
 
 ## Ventana del tutorial abajo al centro (el juego está en pausa). Deja ver el mapa detrás,
 ## así se nota lo que la cámara está mostrando.
+## gris: cuánto se agrisa toda la pantalla (mapa y HUD) detrás de la ventana; 0 si ya hay un
+## foco que oscurece todo menos una zona.
+## grande: ventana más grande y centrada, con letra más legible (para el objetivo del juego).
 func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: Callable,
-		oscurecer := true) -> void:
+		gris := 0.6, grande := false) -> void:
 	var fondo := ColorRect.new()
-	fondo.color = Color(0, 0, 0, 0.35 if oscurecer else 0.0)  # con foco, el foco ya oscurece
+	fondo.color = Color(0.08, 0.09, 0.12, gris)
 	fondo.z_index = Z_TUTORIAL
 	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
 	fondo.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -480,7 +724,7 @@ func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: C
 	var caja := VBoxContainer.new()
 	caja.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	caja.offset_bottom = -28
-	caja.alignment = BoxContainer.ALIGNMENT_END
+	caja.alignment = BoxContainer.ALIGNMENT_CENTER if grande else BoxContainer.ALIGNMENT_END
 	caja.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fondo.add_child(caja)
 	var centro := CenterContainer.new()
@@ -493,31 +737,43 @@ func mostrar_tutorial(titulo: String, texto: String, boton: String, al_cerrar: C
 	estilo.content_margin_right = 16
 	estilo.content_margin_top = 12
 	estilo.content_margin_bottom = 12
-	var panel := _crear_panel(estilo, Vector2(400, 0))
+	var ancho := 600 if grande else 400
+	if grande:
+		estilo.content_margin_left = 28
+		estilo.content_margin_right = 28
+		estilo.content_margin_top = 22
+		estilo.content_margin_bottom = 20
+		estilo.set_border_width_all(3)
+	var panel := _crear_panel(estilo, Vector2(ancho, 0))
 	centro.add_child(panel)
-	var vbox := _vbox(8)
+	var vbox := _vbox(16 if grande else 8)
 	panel.add_child(vbox)
-	var lbl_titulo := _texto_evento(titulo, 14, Color(0.6, 0.9, 1.0))
-	lbl_titulo.custom_minimum_size = Vector2(368, 0)
+	var interior := ancho - int(estilo.content_margin_left + estilo.content_margin_right)
+	var lbl_titulo := _texto_evento(titulo, 24 if grande else 14, Color(0.6, 0.9, 1.0))
+	lbl_titulo.custom_minimum_size = Vector2(interior, 0)
+	if grande:
+		lbl_titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(lbl_titulo)
-	var lbl := _texto_evento(texto, 12, Color.WHITE)
-	lbl.custom_minimum_size = Vector2(368, 0)
+	var lbl := _texto_evento(texto, 17 if grande else 12, Color.WHITE)
+	lbl.custom_minimum_size = Vector2(interior, 0)
+	if grande:
+		lbl.add_theme_constant_override("line_spacing", 4)
 	vbox.add_child(lbl)
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = boton
 	b.size_flags_horizontal = Control.SIZE_SHRINK_END
-	b.custom_minimum_size = Vector2(110, 30)
-	b.add_theme_font_size_override("font_size", 12)
+	b.custom_minimum_size = Vector2(150, 38) if grande else Vector2(110, 30)
+	b.add_theme_font_size_override("font_size", 16 if grande else 12)
 	b.pressed.connect(func():
 		fondo.queue_free()
 		al_cerrar.call())
 	vbox.add_child(b)
 
 ## Instrucción del tutorial abajo al centro. No pausa ni bloquea el mouse: hay que hacer lo
-## que dice para avanzar. al_omitir se llama si el jugador toca "Omitir".
-## boton: "Omitir" (chico, para las tareas) u "Ok" (para los avisos de máquinas).
-func mostrar_instruccion(titulo: String, texto: String, al_omitir: Callable, boton := "Omitir") -> void:
+## que dice para avanzar. al_omitir se llama si el jugador toca el botón.
+## boton: "Saltar paso" (chico, para las tareas) o "Siguiente" (para las explicaciones).
+func mostrar_instruccion(titulo: String, texto: String, al_omitir: Callable, boton := "Saltar paso") -> void:
 	ocultar_instruccion()
 	var estilo := _estilo_panel()
 	estilo.border_color = Color(0.35, 0.85, 1.0)
@@ -551,7 +807,7 @@ func mostrar_instruccion(titulo: String, texto: String, al_omitir: Callable, bot
 	var omitir := Button.new()
 	omitir.focus_mode = Control.FOCUS_NONE
 	omitir.text = boton
-	if boton == "Omitir":
+	if boton == "Saltar paso":
 		omitir.flat = true
 		omitir.add_theme_font_size_override("font_size", 10)
 		omitir.modulate = Color(0.75, 0.78, 0.85)

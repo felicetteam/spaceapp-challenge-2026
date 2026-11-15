@@ -1,0 +1,301 @@
+{
+	"investigaciones": [
+		{
+			"id": "gale",
+			"titulo": "Explorar el cráter Gale",
+			"imagen": "res://assets/img/investigaciones/gale.jpg",
+			"texto": [
+				"El 6 de agosto de 2012, el rover Curiosity aterrizó en el cráter Gale. Viajó por el espacio poco más de 8 meses.",
+				"En el centro del cráter hay una montaña llamada monte Sharp. Tiene rocas con arcillas y sulfatos (un tipo de sal). Esos minerales necesitan agua para formarse. ¡Por eso los científicos pensaron que Gale tuvo agua hace mucho tiempo!"
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Cuánto tiempo viajó Curiosity por el espacio antes de llegar a Marte?",
+					"opciones": [
+						"Poco más de 8 meses.",
+						"Dos semanas.",
+						"Tres meses."
+					],
+					"correcta": 0
+				},
+				{
+					"pregunta": "¿Cómo se llama la montaña que está en el centro del cráter Gale?",
+					"opciones": [
+						"Monte Everest.",
+						"Monte Sharp.",
+						"Monte Olimpo."
+					],
+					"correcta": 1
+				}
+			]
+		},
+		{
+			"id": "jezero",
+			"titulo": "Explorar el cráter Jezero",
+			"imagen": "res://assets/img/investigaciones/jezero.jpg",
+			"texto": [
+				"Hace muchísimo tiempo, en el cráter Jezero había un lago. Hoy ya no tiene agua, pero quedan rocas de esa época.",
+				"El rover Perseverance las estudia para saber cómo era Marte hace miles de millones de años y si alguna vez tuvo vida."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Qué había hace muchísimo tiempo en el cráter Jezero?",
+					"opciones": [
+						"Un volcán.",
+						"Un lago.",
+						"Un océano de lava."
+					],
+					"correcta": 1
+				},
+				{
+					"pregunta": "¿Qué quieren descubrir los científicos estudiando este cráter?",
+					"opciones": [
+						"Cómo era Marte hace miles de millones de años.",
+						"Cuántos bosques había en Marte.",
+						"Cuánto dura un año en Marte."
+					],
+					"correcta": 0
+				}
+			]
+		},
+		{
+			"id": "olimpo",
+			"titulo": "Explorar el monte Olimpo",
+			"imagen": "",
+			"texto": [
+				"El monte Olimpo (Olympus Mons) es el volcán más grande del sistema solar. Mide unos 22 kilómetros de alto: ¡más del doble que el monte Everest!",
+				"En la cima tiene un cráter enorme, es decir ¡un volcán!: hizo erupción muchas veces y la lava lo fue agrandando. Hace millones de años que no hace erupción."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Qué es el monte Olimpo?",
+					"opciones": [
+						"Un cráter de impacto.",
+						"El volcán más grande del sistema solar.",
+						"Una montaña de hielo."
+					],
+					"correcta": 1
+				},
+				{
+					"pregunta": "¿Cómo creció tanto este volcán?",
+					"opciones": [
+						"La lava de muchas erupciones lo fue agrandando.",
+						"El viento acumuló arena en su cima.",
+						"Los meteoritos lo empujaron hacia arriba."
+					],
+					"correcta": 0
+				}
+			]
+		},
+		{
+			"id": "kasei",
+			"titulo": "Explorar los Valles Kasei",
+			"imagen": "",
+			"texto": [
+				"Hace muchísimo tiempo, Marte tuvo inundaciones gigantes. El agua cavó canales enormes en el suelo. Los Valles Kasei son uno de esos lugares.",
+				"El agua salió de Valles Marineris, pasó cerca de la región de Tharsis y llegó a Chryse Planitia, regiones muy importantes.",
+				"¡Este canal mide más de 1.580 km, como 15.000 canchas de fútbol en fila!"
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Qué formó los enormes canales de los Valles Kasei?",
+					"opciones": [
+						"Inundaciones gigantes.",
+						"Fuertes terremotos.",
+						"Tormentas de arena."
+					],
+					"correcta": 0
+				},
+				{
+					"pregunta": "¿Qué elemento fue el responsable de cavar esos canales?",
+					"opciones": [
+						"El viento.",
+						"El hielo.",
+						"El agua."
+					],
+					"correcta": 2
+				}
+			]
+		},
+		{
+			"id": "vastitas",
+			"titulo": "Explorar Vastitas Borealis",
+			"imagen": "res://assets/img/investigaciones/phoenix.jpg",
+			"texto": [
+				"El 25 de mayo de 2008 aterrizó Phoenix, una sonda de la NASA (un robot que junta datos).",
+				"Llegó a Vastitas Borealis, en el norte de Marte, también llamada «Valle Verde». Allí el agua congelada está cerca de la superficie.",
+				"Phoenix estudió la historia del agua en Marte y buscó lugares donde pudo haber vida. Debía trabajar 3 meses... ¡y trabajó 5!"
+			],
+			"reporte": [
+				{
+					"pregunta": "¿En qué parte de Marte se encuentra Vastitas Borealis?",
+					"opciones": [
+						"En el norte.",
+						"En el sur.",
+						"Cerca del monte Olimpo."
+					],
+					"correcta": 0
+				},
+				{
+					"pregunta": "¿Cuánto tiempo trabajó Phoenix?",
+					"opciones": [
+						"Tres meses.",
+						"Cinco meses.",
+						"Un año."
+					],
+					"correcta": 1
+				}
+			]
+		},
+		{
+			"id": "ares",
+			"titulo": "Explorar Ares Vallis",
+			"imagen": "res://assets/img/investigaciones/sojourner.jpg",
+			"texto": [
+				"El 4 de julio de 1997 llegó a Marte Sojourner, un rover de la NASA. Aterrizó en Ares Vallis.",
+				"Usaba una tecnología nueva y su trabajo era probar si se podía explorar Marte con robots.",
+				"Mandó fotos, análisis de rocas y del suelo, y datos del viento y el clima."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Cuál era el objetivo principal de Sojourner?",
+					"opciones": [
+						"Probar si era posible explorar Marte con robots.",
+						"Buscar agua en los océanos.",
+						"Estudiar el Sol."
+					],
+					"correcta": 0
+				},
+				{
+					"pregunta": "¿Qué enviaba Sojourner a la Tierra?",
+					"opciones": [
+						"Fotografías y análisis de rocas y suelo.",
+						"Muestras de plantas marcianas.",
+						"Mensajes de astronautas."
+					],
+					"correcta": 0
+				}
+			]
+		},
+		{
+			"id": "viking",
+			"titulo": "Investigar las misiones Viking 1 y 2",
+			"imagen": "res://assets/img/investigaciones/viking.jpg",
+			"texto": [
+				"Entre junio y agosto de 1976 llegaron a Marte dos sondas hermanas: Viking 1 y Viking 2. Querían conocer mejor el planeta y saber si alguna vez hubo vida.",
+				"Cada una tenía dos partes. El orbitador giraba alrededor de Marte, sacaba fotos y buscaba lugares seguros para aterrizar. El módulo de aterrizaje bajaba a estudiar las rocas, el suelo y el clima.",
+				"Sacaron más de 50.000 fotos. Mostraron valles con señales de antiguas inundaciones: ¡Marte tuvo mucha agua líquida! Viking 2 anotó una posible vibración del suelo, quizás un «terremoto marciano».",
+				"También hicieron experimentos con tierra marciana para buscar vida, pero no encontraron pruebas claras."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Para qué servía el orbitador?",
+					"opciones": [
+						"Para girar alrededor de Marte y sacar fotografías.",
+						"Para caminar por la superficie.",
+						"Para recoger muestras de agua."
+					],
+					"correcta": 0
+				},
+				{
+					"pregunta": "¿Cuántas fotografías sacaron aproximadamente las misiones Viking?",
+					"opciones": [
+						"Más de 5.000.",
+						"Más de 50.000.",
+						"Más de 500.000."
+					],
+					"correcta": 1
+				}
+			]
+		},
+		{
+			"id": "futura_base",
+			"titulo": "Explorar una zona para una futura base",
+			"imagen": "",
+			"texto": [
+				"Entre el 27 y el 30 de octubre de 2015, muchos científicos se reunieron en un taller de la NASA. Buscaban lugares de Marte adonde puedan llegar naves y personas.",
+				"Usaron datos de muchas naves y analizaron 47 zonas posibles. ¡Todavía hay que seguir investigándolas!"
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Quiénes participaron en el taller?",
+					"opciones": [
+						"Famosos.",
+						"Científicos.",
+						"Personas que querían viajar a Marte."
+					],
+					"correcta": 1
+				},
+				{
+					"pregunta": "¿Cuántas zonas posibles analizaron?",
+					"opciones": [
+						"12.",
+						"47.",
+						"100."
+					],
+					"correcta": 1
+				}
+			]
+		},
+		{
+			"id": "terreno",
+			"titulo": "Explorar el terreno",
+			"imagen": "",
+			"texto": [
+				"Hace muchísimo tiempo, Marte tuvo agua líquida en algunos lugares. Al moverse, el agua cambiaba las rocas y dejaba marcas que todavía vemos hoy.",
+				"Aunque ya no haya agua, sabemos dónde estuvo gracias a dos pistas.",
+				"Las formas del terreno: canales y otras marcas que dejó el agua.",
+				"Los minerales: algunas rocas cambiaron con el agua y se volvieron arcillas y sales hidratadas."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿Qué pistas permiten saber dónde hubo agua?",
+					"opciones": [
+						"Las estrellas y las nubes.",
+						"Las formas del terreno y los minerales.",
+						"Los sonidos y los colores."
+					],
+					"correcta": 1
+				},
+				{
+					"pregunta": "¿Qué minerales pueden formarse cuando las rocas cambian por el contacto con el agua?",
+					"opciones": [
+						"Oro y plata.",
+						"Diamantes y rubíes.",
+						"Arcillas y sales hidratadas."
+					],
+					"correcta": 2
+				}
+			]
+		},
+		{
+			"id": "clima_espacial",
+			"titulo": "Vigilar el clima espacial",
+			"imagen": "",
+			"texto": [
+				"A veces el Sol lanza explosiones de energía (erupciones solares) y nubes enormes de partículas (eyecciones de masa coronal). A todo esto se lo llama clima espacial.",
+				"Esas partículas pueden dañar los aparatos de las naves y poner en riesgo a los astronautas. Por eso la NASA anota cada evento en una base de datos llamada DONKI y avisa a las misiones cuando se acerca una tormenta solar."
+			],
+			"reporte": [
+				{
+					"pregunta": "¿De dónde vienen las erupciones solares?",
+					"opciones": [
+						"De Marte.",
+						"Del Sol.",
+						"De los asteroides."
+					],
+					"correcta": 1
+				},
+				{
+					"pregunta": "¿Qué pueden provocar las partículas que lanza el Sol?",
+					"opciones": [
+						"Daños en los aparatos de las naves y riesgos para los astronautas.",
+						"Que Marte cambie de tamaño.",
+						"Que desaparezcan los volcanes."
+					],
+					"correcta": 0
+				}
+			]
+		}
+	]
+}

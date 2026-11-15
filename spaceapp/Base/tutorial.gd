@@ -2,14 +2,15 @@ class_name Tutorial
 extends Node
 ## Tutorial: explica controles y mecánicas. Se activa con Ajustes.tutorial_activado.
 ## Cada paso sale una sola vez por partida. Hay tres tipos de paso:
-## - "info": ventana que pausa el juego y se cierra con un botón (puede destacar algo del HUD).
+## - "info": ventana que pausa el juego y se cierra con "Siguiente" (puede destacar algo del
+##   HUD; si no destaca nada, pone gris toda la pantalla).
 ## - "tarea": instrucción que NO pausa; avanza sola cuando el jugador hace lo que pide
-##   (se tilda y, un segundo después, pasa al siguiente).
-## - "aviso": explicación de una máquina que NO pausa; se cierra con "Ok" o sola a los 10 s.
+##   (se tilda y, un segundo después, pasa al siguiente). Se puede "Saltar paso".
+## - "aviso": explicación de una máquina que NO pausa; queda hasta que se toca "Siguiente".
 ## Tareas y avisos oscurecen toda la pantalla menos la zona indicada (sin bloquear los clics).
 ##
-## Al empezar: objetivo, elegir un astronauta, reparar una máquina, mover la cámara, la
-## tripulación y cada recurso; al terminar, la cámara se aleja para ver el mapa.
+## Al empezar: objetivo, elegir un astronauta, reparar una máquina, trabajo en equipo, mover
+## la cámara, la tripulación, sus bonos (satisfecho/descansado/feliz) y cada recurso; al terminar, la cámara se aleja para ver el mapa.
 ## Después, la primera vez: tocar cada máquina, un astronauta con hambre o sueño (hay que
 ## llevarlo al comedor o a una cama) y la primera exploración.
 
@@ -31,24 +32,9 @@ var _t_aviso := 0.0
 const ESPERA_TILDE := 1.0
 const DURACION_AVISO := 10.0
 
-const TEXTOS_MAQUINAS := {
-	"fotovoltaica": ["Paneles solares",
-		"Juntan la luz del Sol y la convierten en energía. Rinden mucho a la mañana, menos a la tarde y nada de noche. Si se gastan, generan menos: ¡mantenelos sanos para tener energía para la noche!"],
-	"comunicaciones": ["Comunicaciones",
-		"La antena que conecta la base con la Tierra. Mientras funciona, ves los recursos, los desgastes y las alertas. Si se rompe, aparece un ! rojo encima y te quedás a ciegas: arreglala primero."],
-	"o2": ["Máquina de oxígeno",
-		"Fabrica el aire que respira la tripulación. Necesita energía. Si está gastada (borde amarillo o rojo) no da abasto y el oxígeno baja de a poco; si se rompe, el oxígeno se acaba."],
-	"invernadero": ["Invernadero",
-		"Acá crecen las plantas. Cuanto mejor esté, más comida da cada visita al comedor."],
-	"escudo": ["Escudo de radiación",
-		"Protege la base de la radiación del Sol. Sano (sin borde o en amarillo) hace bajar la radiación; en rojo solo la frena; roto, la radiación sube."],
-	"rover": ["Rover",
-		"El vehículo para explorar Marte. Un astronauta se sube y sale a investigar lugares nuevos. Cada salida lo gasta un poco."],
-	"escritorio": ["Escritorio de investigación",
-		"Acá se investiga, sentado en la silla. Primero hay que explorar con el rover: cada exploración desbloquea una investigación nueva."],
-	"otras": ["Máquina",
-		"Las máquinas se gastan con el tiempo (más rápido con radiación alta). Mandá a un astronauta a repararlas antes de que se rompan."],
-}
+## Los textos de las máquinas y mecánicas están en Base/textos_ayuda.gd (también los usa la
+## ventana de Información).
+const TextosAyuda := preload("res://Base/textos_ayuda.gd")
 
 
 func iniciar() -> void:
@@ -56,9 +42,9 @@ func iniciar() -> void:
 		return
 	eventos.evento_iniciado.connect(_al_iniciar_evento)
 	_intro = true
-	_agregar_info("objetivo", "Objetivo del juego", "(Texto pendiente)")
+	_agregar_info("objetivo", "Objetivo del juego", "Completar 4 investigaciones: Debes salir a explorar el planeta y completar investigaciones", null, false, Callable(), true)
 	_agregar_tarea("elegir", "Elegí un astronauta",
-		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También sirven su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
+		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También podés elegirlos con su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
 		func(): return _rect_astronauta(_primer_astronauta()),
 		func(): return base._activo() != null)
 	var peor := _peor_maquina()
@@ -68,23 +54,28 @@ func iniciar() -> void:
 		func(): return _alguien_reparando(),
 		peor,
 		func(): return "Caminando hacia la máquina..." if _quien_va_a_reparar() != null else "")
+	_agregar_info("equipo", "Trabajo en equipo",
+		TextosAyuda.texto("equipo"))
 	_agregar_tarea("camara", "Mové la cámara",
-		"Usá la rueda del mouse para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Con un astronauta elegido la cámara lo sigue; llevá el mouse al borde para mirar alrededor.",
+		"Usá la rueda del mouse (o la barra de zoom de la derecha) para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Al elegir un astronauta, lo seguimos por la base.",
 		Callable(),
 		func(): return base.uso_rueda and base.uso_arrastre,
 		null,
-		func(): return "%s Rueda    %s Arrastrar" % ["✔" if base.uso_rueda else "○", "✔" if base.uso_arrastre else "○"])
+		func(): return "%s Zoom    %s Arrastrar" % ["✔" if base.uso_rueda else "○", "✔" if base.uso_arrastre else "○"])
 	_agregar_info("tripulacion", "Tu tripulación",
-		"Cada tarjeta muestra la salud, la comida y la energía de un astronauta. Si la comida o la energía llegan a cero, la salud baja. Llevalos al comedor a comer y a las camas a dormir.",
+		TextosAyuda.texto("tripulacion"),
+		null, false, func(): return hud.rect_tripulacion())
+	_agregar_info("bonos", "Bonos de salud",
+		TextosAyuda.texto("bonos"),
 		null, false, func(): return hud.rect_tripulacion())
 	_agregar_info("rec_energia", "Recurso: Energía",
-		"La barra amarilla. La generan los paneles solares de día y la usan todas las máquinas. Sin energía, las máquinas se apagan.",
+		TextosAyuda.texto("rec_energia"),
 		null, false, func(): return hud.rect_recurso("energia"))
 	_agregar_info("rec_oxigeno", "Recurso: Oxígeno",
-		"La barra celeste. Lo fabrica la máquina de oxígeno, que necesita energía. Con poco oxígeno la tripulación se cansa mucho más rápido y, muy bajo, pierde salud.",
+		TextosAyuda.texto("rec_oxigeno"),
 		null, false, func(): return hud.rect_recurso("oxigeno"))
 	_agregar_info("rec_radiacion", "Recurso: Radiación",
-		"La barra violeta. Viene del Sol y sube sola. Gasta las máquinas más rápido y, arriba de 80%, daña a la tripulación. El escudo de radiación la mantiene baja.",
+		TextosAyuda.texto("rec_radiacion"),
 		null, false, func(): return hud.rect_recurso("radiacion"))
 	_mostrar_siguiente.call_deferred()
 
@@ -133,7 +124,7 @@ func maquina_tocada(m: Maquina) -> void:
 	if not Ajustes.actual().tutorial_activado:
 		return
 	var tipo := String(m.tipo_ajuste())
-	var datos: Array = TEXTOS_MAQUINAS.get(tipo, TEXTOS_MAQUINAS["otras"])
+	var datos: Array = TextosAyuda.MAQUINAS.get(tipo, TextosAyuda.MAQUINAS["otras"])
 	_agregar({"id": "maq_" + tipo, "tipo": "aviso", "titulo": datos[0], "texto": datos[1],
 			"foco": m, "zona": func(): return m.rect_global() if is_instance_valid(m) else Rect2(),
 			"condicion": func(): return false}, true)
@@ -143,7 +134,7 @@ func maquina_tocada(m: Maquina) -> void:
 func _al_iniciar_evento(ev: Dictionary) -> void:
 	if _es_exploracion(ev):
 		_agregar_info("exploracion", "Las exploraciones",
-			"Un astronauta se sube al rover y sale a investigar un lugar nuevo de Marte. Mientras explora no está en la base, así que no puede reparar ni ayudar. Al volver, desbloquea una investigación para el escritorio: sin explorar, no se puede investigar. Podés salir ahora o posponerla.",
+			TextosAyuda.texto("exploracion"),
 			_rover(), true)
 		_mostrar_siguiente.call_deferred()  # aparece encima de la ventana del evento
 
@@ -152,10 +143,11 @@ func _al_iniciar_evento(ev: Dictionary) -> void:
 
 ## zona_pantalla: Callable que devuelve un rectángulo de la pantalla a destacar (por ejemplo,
 ## una barra del HUD); Callable() = sin foco.
+## grande: ventana grande y centrada (el objetivo del juego).
 func _agregar_info(id: String, titulo: String, texto: String, foco: Node2D = null, primero := false,
-		zona_pantalla: Callable = Callable()) -> void:
+		zona_pantalla: Callable = Callable(), grande := false) -> void:
 	_agregar({"id": id, "tipo": "info", "titulo": titulo, "texto": texto, "foco": foco,
-			"zona_pantalla": zona_pantalla}, primero)
+			"zona_pantalla": zona_pantalla, "grande": grande}, primero)
 
 
 ## zona: Callable que devuelve el rectángulo del mundo a destacar (Callable() = sin oscurecer).
@@ -198,7 +190,7 @@ func _mostrar_siguiente() -> void:
 		if foco != null and is_instance_valid(foco):
 			base.enfocar(foco)
 		if paso["tipo"] == "aviso":
-			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea, "Ok")
+			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea, "Siguiente")
 		else:
 			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea)
 		_seguir_tarea(0.0)
@@ -210,11 +202,19 @@ func _mostrar_siguiente() -> void:
 	var con_foco := zona.is_valid()
 	if con_foco:
 		hud.poner_foco(zona.call(), true)
-	var boton := "Siguiente" if not _cola.is_empty() else "Entendido"
+	var boton := "Siguiente"  # las explicaciones siempre avanzan con "Siguiente"
 	var al_cerrar := func():
 		hud.poner_foco(Rect2(), false)
 		_paso_terminado()
-	hud.mostrar_tutorial(paso["titulo"], paso["texto"], boton, al_cerrar, not con_foco)
+	# Gris parejo en toda la pantalla; más suave si la cámara está mostrando algo del mapa,
+	# más fuerte para el objetivo, y nada si el foco ya oscurece todo menos una zona
+	var grande := bool(paso.get("grande", false))
+	var gris := 0.72 if grande else 0.6
+	if con_foco:
+		gris = 0.0
+	elif foco != null and is_instance_valid(foco):
+		gris = 0.3
+	hud.mostrar_tutorial(paso["titulo"], paso["texto"], boton, al_cerrar, gris, grande)
 
 
 ## Actualiza el foco oscuro (la zona se mueve con la cámara) y revisa si ya se cumplió.
@@ -233,11 +233,8 @@ func _seguir_tarea(delta: float) -> void:
 	if _completando:
 		return
 	if _tarea["tipo"] == "aviso":
-		_t_aviso -= delta
-		hud.progreso_instruccion("Se cierra en %d s" % ceili(maxf(_t_aviso, 0.0)))
-		if _t_aviso <= 0.0:
-			_cerrar_tarea()
-		return
+		return  # las explicaciones de máquinas quedan hasta tocar "Siguiente"
+
 	var progreso: Callable = _tarea.get("progreso", Callable())
 	if progreso.is_valid():
 		hud.progreso_instruccion(progreso.call())
@@ -260,7 +257,7 @@ func _completar_tarea() -> void:
 			_cerrar_tarea())
 
 
-## Cierra la tarea o el aviso ya mismo (Omitir, Ok, o después del tilde).
+## Cierra la tarea o el aviso ya mismo (Saltar paso, Siguiente, o después del tilde).
 func _cerrar_tarea() -> void:
 	if _tarea.is_empty():
 		return

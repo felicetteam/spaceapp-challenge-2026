@@ -1,7 +1,8 @@
 class_name Escritorio
 extends Maquina
-## Escritorio de investigación (todavía sin definir). No se desgasta.
-## Los astronautas trabajan en él como en una máquina; con energía, suman progreso.
+## Escritorio de investigación. No se desgasta.
+## Los astronautas trabajan en él como en una máquina; con energía, suman progreso a la
+## investigación activa del diario (Base/diario.gd): la más vieja de las desbloqueadas.
 ## Solo se puede investigar después de que una exploración desbloquee una investigación.
 ## Tiene una silla (hijo "Silla", como los asientos del comedor): se investiga sentado ahí,
 ## de a uno. Una máquina puesta encima del escritorio también se trabaja desde esta silla.
@@ -12,6 +13,7 @@ signal interfaz_solicitada(escritorio: Escritorio, personaje: Personaje)
 ## Progreso por segundo por cada astronauta investigando.
 @export var progreso_por_segundo := 1.0
 
+## Progreso (0..100) de la investigación activa del diario (lo muestra la terminal).
 var progreso_investigacion := 0.0
 ## Quién está sentado (o yendo a sentarse) en la silla.
 var ocupante_silla: Personaje = null
@@ -90,20 +92,44 @@ func trabajar(delta: float) -> void:
 		interfaz_solicitada.emit(self, ocupante_silla)
 
 	if funcionando() and _desbloqueada():
-		progreso_investigacion += progreso_por_segundo * delta * Ajustes.actual().trabajo_de(tipo_ajuste())
+		var diario := _diario()
+		var cantidad: float = progreso_por_segundo * delta * Ajustes.actual().trabajo_de(tipo_ajuste())
+		var activa: Dictionary = diario.activa()
+		var completa: Dictionary = diario.avanzar(cantidad)
+		progreso_investigacion = 100.0 * diario.fraccion(activa)
 		investigacion_avanzo.emit(self, progreso_investigacion)
+		if not completa.is_empty():
+			_avisar_completa(completa)
+
+
+## Investigación terminada: aviso en el HUD y, si quedan otras desbloqueadas, sigue con la próxima.
+func _avisar_completa(m: Dictionary) -> void:
+	var hud := get_tree().current_scene.get_node_or_null("HUD")
+	if hud != null and hud.has_method("agregar_alerta"):
+		hud.agregar_alerta("¡Investigación completa: %s! Leela en Información > Diario" % String(m.get("titulo", "")), 0, self)
+	progreso_investigacion = 0.0
 
 
 func obtener_estado() -> String:
 	if not funcionando():
 		return "Sin energía"
 	if not _desbloqueada():
+		var d := _diario()
+		if d != null and d.cantidad_desbloqueadas() > 0:
+			return "Todo investigado: explorá para seguir"
 		return "Bloqueado: falta explorar"
-	return "Investigación: %d" % int(progreso_investigacion)
+	var m: Dictionary = _diario().activa()
+	return "Investigando %s: %d%%" % [String(m.get("titulo", "")), roundi(100.0 * _diario().fraccion(m))]
 
 
+## Hay una investigación desbloqueada y sin completar en el diario.
 func _desbloqueada() -> bool:
-	return recursos() != null and recursos().investigaciones_desbloqueadas > 0
+	var d := _diario()
+	return d != null and d.hay_activa()
+
+
+func _diario() -> Node:
+	return get_tree().get_first_node_in_group("diario")
 
 
 ## Clave de este tipo de máquina en Base/ajustes.gd (trabajo_escritorio).
