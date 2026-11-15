@@ -7,6 +7,7 @@ extends Maquina
 ## de a uno. Una máquina puesta encima del escritorio también se trabaja desde esta silla.
 
 signal investigacion_avanzo(escritorio: Escritorio, progreso: float)
+signal interfaz_solicitada(escritorio: Escritorio, personaje: Personaje)
 
 ## Progreso por segundo por cada astronauta investigando.
 @export var progreso_por_segundo := 1.0
@@ -15,6 +16,7 @@ var progreso_investigacion := 0.0
 ## Quién está sentado (o yendo a sentarse) en la silla.
 var ocupante_silla: Personaje = null
 var _silla: Node2D
+var _interfaz_abierta := false
 
 
 func _init() -> void:
@@ -67,6 +69,7 @@ func reservar_silla(p: Personaje) -> Vector2:
 func liberar_silla(p: Personaje) -> void:
 	if ocupante_silla == p:
 		ocupante_silla = null
+		_interfaz_abierta = false
 
 
 ## El escritorio se trabaja desde su propia silla.
@@ -82,6 +85,10 @@ func contiene_punto(p: Vector2) -> bool:
 
 
 func trabajar(delta: float) -> void:
+	if not _interfaz_abierta and ocupante_silla != null:
+		_interfaz_abierta = true
+		interfaz_solicitada.emit(self, ocupante_silla)
+
 	if funcionando() and _desbloqueada():
 		progreso_investigacion += progreso_por_segundo * delta * Ajustes.actual().trabajo_de(tipo_ajuste())
 		investigacion_avanzo.emit(self, progreso_investigacion)
