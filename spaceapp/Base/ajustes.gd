@@ -31,8 +31,8 @@ extends Resource
 @export var desgaste_fotovoltaica := 1.0
 @export var desgaste_comunicaciones := 1.0
 @export var desgaste_o2 := 1.0
-@export var desgaste_invernadero := 1.0
-@export var desgaste_escudo := 1.0
+@export var desgaste_invernadero := 0.5
+@export var desgaste_escudo := 0.3
 @export var desgaste_rover := 1.0
 ## Cualquier otra máquina que no sea de los tipos de arriba.
 @export var desgaste_otras := 1.0
@@ -42,10 +42,10 @@ extends Resource
 
 @export_group("Velocidad de trabajo")
 ## Multiplica el trabajo en todas las máquinas (se combina con el de cada una).
-@export var velocidad_trabajo := 0.1
+@export var velocidad_trabajo := 0.15
 ## Reparación de cada tipo de máquina.
 @export var trabajo_fotovoltaica := 1.0
-@export var trabajo_comunicaciones := 1.0
+@export var trabajo_comunicaciones := 1.5
 @export var trabajo_o2 := 1.0
 @export var trabajo_invernadero := 1.0
 @export var trabajo_escudo := 1.0
@@ -54,29 +54,66 @@ extends Resource
 @export var trabajo_escritorio := 1.0
 ## Cualquier otra máquina que no sea de los tipos de arriba.
 @export var trabajo_otras := 1.0
+## Trabajo en equipo: por cada astronauta adicional reparando la misma máquina, la reparación
+## va esta fracción más rápido (0.5 = +50% con 2, +100% con 3...).
+@export var bonus_equipo := 0.5
 
 @export_group("Comer")
 ## Qué tan rápido come: acorta el tiempo sentado en el comedor (1.0 = 3 s; 10.0 = 0,3 s).
 ## No cambia cuánta comida recupera: para eso está comida_por_turno.
-@export var velocidad_comer := 0.1
+@export var velocidad_comer := 0.15
 ## Cuánta comida recupera en cada turno.
-@export var comida_por_turno := 1.5
+@export var comida_por_turno := 2.5
 ## Multiplica la espera entre comidas (1.0 = 5 minutos; 0.5 = cada 2 min 30 s).
 @export var intervalo_comida := 0.5
 
 @export_group("Dormir")
-## Qué tan rápido recupera sueño en la cama de habitación.
-@export var velocidad_dormir := 0.15
-## Qué tan rápido recupera sueño y comida en la cama de hospital.
+## Parte de la noche que tarda en recargar la energía de 0 a 100 (2/3 de las 12 h 9 min de
+## noche = unas 8 h). Con ese ritmo, la energía de una noche completa dura hasta más o menos
+## la misma hora en que se durmió el día anterior (el resto del sol, unas 16 h 33 min).
+@export var noche_para_dormir := 0.667
+## Multiplica la velocidad de recuperar energía en cualquier cama (1.0 = el balance de arriba).
+@export var velocidad_dormir := 1.0
+## Qué tan rápido recupera comida en la cama de hospital.
 @export var velocidad_hospital := 0.15
+## Inconsciente recupera energía a esta fracción de la velocidad normal, hasta poder levantarse.
+@export var recuperacion_inconsciente := 0.75
+## Segundos reales en que la energía no baja después de dormir hasta el 100% (estado Descansado).
+@export var duracion_descansado := 60.0
+
+## Segundos reales en que la comida no baja después de comer hasta el 100% (estado Satisfecho).
+@export var duracion_satisfecho := 60.0
+
+@export_group("Eventos críticos")
+## Si es false, no aparecen eventos (con F7 se puede forzar uno igual, para probar).
+@export var eventos_activados := true
+## Segundos de juego hasta el primer evento.
+@export var primer_evento := 60.0
+## "id" (en Eventos/eventos_criticos.json) del evento que sale siempre primero.
+## Vacío = el primero también es al azar.
+@export var primer_evento_id := "nueva_exploracion"
+## Segundos de juego entre un evento y el siguiente (al azar entre los dos).
+@export var intervalo_eventos_min := 150.0
+@export var intervalo_eventos_max := 300.0
 
 @export_group("Astronautas")
 ## Velocidad con la que sube el hambre (baja la comida).
 @export var hambre := 1.0
-## Velocidad con la que sube el sueño (baja la energía del astronauta).
+## Velocidad con la que sube el sueño (baja la energía del astronauta). 1.0 = balanceado con
+## el sueño de la noche (ver Dormir).
 @export var sueno := 1.0
+## Descansado y Satisfecho a la vez = Feliz: trabaja en las máquinas esta cantidad de veces más rápido.
+@export var bonus_feliz := 1.1
 ## Daño directo a la salud (oxígeno muy bajo, radiación alta).
 @export var dano_salud := 1.0
+## Daño a la salud por segundo cuando la comida llega a 0 (hambre al máximo).
+@export var dano_hambre := 1.0
+## Segundos que queda inconsciente (por salud 0 o por agotamiento), esté en el piso o en
+## cualquier cama. Pasado ese tiempo puede volver a moverse.
+@export var tiempo_inconsciente := 30.0
+## Segundos después de despertarse en los que no puede volver a desmayarse
+## (para darle tiempo al jugador de llevarlo a comer o a dormir).
+@export var gracia_desmayo := 15.0
 
 static var _actual: Ajustes
 

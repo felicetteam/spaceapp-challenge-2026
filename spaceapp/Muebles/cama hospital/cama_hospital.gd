@@ -6,7 +6,7 @@ extends Node2D
 ## Cuando no hay nadie, la sábana está siempre oculta.
 ##
 ## Cama de hospital: solo_desmayados = true (solo acepta astronautas con salud 0, que trae la
-## roomba), recupera sueño y comida despacio y consume energía mientras se usa.
+## roomba), además del sueño recupera comida despacio y consume energía mientras se usa.
 ## Funciona con raíz StaticBody2D, Area2D o Node2D.
 
 signal personaje_acostado(personaje: Personaje)
@@ -24,8 +24,8 @@ signal personaje_levantado(personaje: Personaje)
 @export_group("Uso")
 ## Solo acepta astronautas inconscientes (salud 0). Para la cama de hospital.
 @export var solo_desmayados := false
-## Sueño que recupera por segundo mientras está acostado.
-@export var recupera_sueno := 6.0
+## El sueño se recupera al ritmo balanceado de Personaje.ritmo_recuperar_sueno()
+## (2/3 de la noche para ir de 0 a 100; más lento si está inconsciente).
 ## Comida que recupera por segundo mientras está acostado.
 @export var recupera_comida := 0.0
 ## Energía por segundo mientras está ocupada. Si es mayor a 0, sin energía no recupera nada.
@@ -74,8 +74,7 @@ func _process(delta: float) -> void:
 	ocupante.durmiendo = recuperando
 	if recuperando:
 		var aj := Ajustes.actual()
-		var mult := aj.velocidad_hospital if solo_desmayados else aj.velocidad_dormir
-		ocupante.sueno = maxf(0.0, ocupante.sueno - recupera_sueno * mult * delta)
+		ocupante.sueno = maxf(0.0, ocupante.sueno - ocupante.ritmo_recuperar_sueno() * delta)
 		ocupante.hambre = maxf(0.0, ocupante.hambre - recupera_comida * aj.velocidad_hospital * delta)
 	# Recuperado (y despierto): se levanta y vuelve al idle
 	var p := ocupante

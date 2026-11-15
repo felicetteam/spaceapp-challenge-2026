@@ -1,49 +1,209 @@
 {
 	"eventos": [
 		{
-			"id": "tormenta_polvo",
-			"titulo": "Tormenta de polvo",
-			"descripcion": "Una tormenta de polvo cubre los paneles solares. Podemos salir a limpiarlos ahora o esperar a que pase.",
+			"id": "lluvia_particulas",
+			"titulo": "Lluvia de partículas",
+			"descripcion": "El Sol lanza partículas chiquitísimas y rapidísimas, como una lluvia que no se ve. En Marte casi no hay aire que las frene, así que llegan hasta el suelo. ¡La radiación de la base sube! Afuera es peligroso: quien salga pierde salud más rápido.",
+			"consejo": "Mirá el sensor de radiación: antes de que empiece la lluvia, reforzá el blindaje y volvé a la base. Durante la lluvia, quedate adentro haciendo tareas de la base.",
+			"al_iniciar": [
+				{
+					"recurso": "radiacion",
+					"cantidad": 15
+				}
+			],
+			"estructura": "escudo",
 			"opcion_a": {
-				"texto": "Salir a limpiar los paneles",
-				"gana": { "recurso": "energia", "cantidad": 25 },
-				"pierde": { "recurso": "cualquiera", "duracion": 120, "modo": "fuera", "motivo": "limpiando paneles" }
+				"texto": "Reforzar el blindaje y quedarse adentro",
+				"gana": {
+					"recurso": "mantenimiento:escudo",
+					"cantidad": 30
+				},
+				"pierde": {
+					"recurso": "energia",
+					"cantidad": 20
+				}
 			},
 			"opcion_b": {
-				"texto": "Esperar adentro",
-				"gana": { "recurso": "descanso", "cantidad": 15 },
-				"pierde": { "recurso": "mantenimiento:fotovoltaica", "cantidad": 30 }
-			}
+				"texto": "Terminar rápido el trabajo de afuera",
+				"gana": {
+					"recurso": "investigacion",
+					"cantidad": 15
+				},
+				"pierde": {
+					"recurso": "salud:cualquiera",
+					"cantidad": 25
+				},
+				"estructura": "fotovoltaica"
+			},
+			"dato_nasa": "En mayo de 2024 el rover Curiosity midió la mayor dosis de radiación de toda su misión en Marte, durante una tormenta del Sol. Una persona parada ahí habría recibido lo mismo que 30 radiografías de tórax. Las partículas llegaron en unas pocas decenas de minutos. Los científicos dicen que un acantilado o un túnel de lava daría más protección.",
+			"fuente": "NASA, detector de radiación RAD de Curiosity (mayo de 2024), contado en gizmodo.com/mars-solar-storm-auroras-radiation-particles-1851532453 y en space.com/powerful-solar-storm-mars-radiation-astronaut-missions"
 		},
 		{
-			"id": "fuga_oxigeno",
-			"titulo": "Fuga de oxígeno",
-			"descripcion": "Se detectó una microfisura en un módulo. Podemos sellarla de inmediato desviando energía, o que Juan la repare a mano.",
+			"id": "tormenta_solar",
+			"titulo": "Tormenta solar",
+			"descripcion": "El Sol tiene una explosión enorme y lanza una nube gigante de gas muy caliente. La radiación sube y las comunicaciones se cortan: las barras de la pantalla desaparecen, así que se ven señales de que algo se rompió, pero no se sabe cuánto.",
+			"consejo": "Reforzá el blindaje, esperá adentro haciendo tareas de la base y, cuando pase, revisá las máquinas y arreglá las comunicaciones: la radiación las gasta más.",
+			"al_iniciar": [
+				{
+					"recurso": "radiacion",
+					"cantidad": 20
+				},
+				{
+					"recurso": "mantenimiento:comunicaciones",
+					"cantidad": -100
+				}
+			],
+			"estructura": "escudo",
 			"opcion_a": {
-				"texto": "Sellar con energía de reserva",
-				"gana": { "recurso": "oxigeno", "cantidad": 20 },
-				"pierde": { "recurso": "energia", "cantidad": 30 }
+				"texto": "Reforzar el blindaje y esperar adentro",
+				"gana": {
+					"recurso": "mantenimiento:escudo",
+					"cantidad": 30
+				},
+				"pierde": {
+					"recurso": "energia",
+					"cantidad": 15
+				}
 			},
 			"opcion_b": {
-				"texto": "Que Juan la repare",
-				"gana": { "recurso": "oxigeno", "cantidad": 10 },
-				"pierde": { "recurso": "Juan", "duracion": 240, "modo": "ocupado", "motivo": "reparando la fisura" }
-			}
+				"texto": "Salir ya a revisar las máquinas",
+				"gana": {
+					"recurso": "mantenimiento",
+					"cantidad": 15
+				},
+				"pierde": {
+					"recurso": "salud:cualquiera",
+					"cantidad": 30
+				},
+				"estructura": "fotovoltaica"
+			},
+			"dato_nasa": "En agosto de 1972 hubo una tormenta solar muy fuerte justo entre las misiones Apollo 16 y Apollo 17, y por suerte no había astronautas en el camino. En mayo de 2024 otra tormenta cortó radios en la Tierra y llenó el cielo de auroras, y la cámara de la sonda Odyssey, que da vueltas alrededor de Marte, se apagó por un momento.",
+			"fuente": "NASA, video «How NASA Will Protect Astronauts From Space Radiation» (svs.gsfc.nasa.gov/13275); space.com/powerful-solar-storm-mars-radiation-astronaut-missions; gizmodo.com.au/?p=1957534"
 		},
 		{
-			"id": "llamado_tierra",
-			"titulo": "Llamado de la Tierra",
-			"descripcion": "Control de misión pide datos de investigación urgentes. Enviarlos consume comunicaciones; ignorarlos baja la moral del equipo.",
+			"id": "falla_energia",
+			"titulo": "Falla del sistema de energía",
+			"descripcion": "Algo falla en los paneles o las baterías y la base pierde energía muy rápido. Sin energía baja el oxígeno y las máquinas trabajan más lento.",
+			"consejo": "Hay que elegir: apagar una máquina que no es urgente para ahorrar energía, o no apagar nada y mandar a alguien a arreglar la falla mientras la energía baja.",
+			"al_iniciar": [
+				{
+					"recurso": "energia",
+					"cantidad": -30
+				}
+			],
+			"estructura": "fotovoltaica",
 			"opcion_a": {
-				"texto": "Enviar los datos",
-				"gana": { "recurso": "investigacion", "cantidad": 20 },
-				"pierde": { "recurso": "mantenimiento:comunicaciones", "cantidad": 25 }
+				"texto": "Apagar el invernadero un rato para ahorrar energía",
+				"gana": {
+					"recurso": "energia",
+					"cantidad": 20
+				},
+				"pierde": {
+					"recurso": "mantenimiento:invernadero",
+					"cantidad": 30
+				},
+				"estructura": "invernadero"
 			},
 			"opcion_b": {
-				"texto": "Ignorar el pedido",
-				"gana": { "recurso": "nada" },
-				"pierde": { "recurso": "descanso", "cantidad": 20 }
-			}
+				"texto": "No apagar nada: mandar a alguien a arreglar la falla",
+				"gana": {
+					"recurso": "energia",
+					"cantidad": 10
+				},
+				"pierde": {
+					"recurso": "elegir",
+					"duracion": 180,
+					"modo": "ocupado",
+					"motivo": "arreglando la energía"
+				}
+			},
+			"dato_nasa": "En 2018 una tormenta de polvo cubrió todo Marte y tapó el Sol. El rover Opportunity, que funciona con paneles solares, dejó de hacer ciencia para ahorrar la poca energía que le quedaba y quedó en silencio el 10 de junio de 2018. Curiosity, que usa un generador nuclear en vez de paneles, siguió trabajando.",
+			"fuente": "NASA/JPL, «Six Things About Opportunity's Recovery Efforts» (jpl.nasa.gov/news/six-things-about-opportunitys-recovery-efforts); space.com/40888-mars-dust-storm-2018-and-opportunity-rover-images.html"
+		},
+		{
+			"id": "nueva_exploracion",
+			"titulo": "Nueva exploración disponible",
+			"descripcion": "¡Apareció un lugar nuevo para investigar! Un astronauta tiene que salir con el rover. Cada exploración desbloquea una investigación nueva para el escritorio.",
+			"consejo": "Mirá qué pide la exploración: terreno difícil pide Trabajo, ambiente hostil pide Salud y análisis pide Investigación. Elegí un astronauta con buena salud, revisá el rover y salí. Las exploraciones se hacen de a una.",
+			"estructura": "rover",
+			"opcion_a": {
+				"texto": "Salir a explorar",
+				"gana": {
+					"recurso": "desbloqueo",
+					"cantidad": 1
+				},
+				"pierde": [
+					{
+						"recurso": "elegir",
+						"duracion": 240,
+						"modo": "fuera",
+						"motivo": "explorando"
+					},
+					{
+						"recurso": "mantenimiento:rover",
+						"cantidad": 15
+					}
+				]
+			},
+			"opcion_b": {
+				"texto": "Posponer la exploración",
+				"gana": {
+					"recurso": "nada"
+				},
+				"pierde": {
+					"recurso": "posponer",
+					"segundos": 300
+				}
+			},
+			"dato_nasa": "El rover Curiosity aterrizó en Marte en agosto de 2012 y estaba pensado para una misión de 2 años, pero sigue explorando. (Dato a confirmar en la página de la misión Curiosity de la NASA.)",
+			"fuente": "Por confirmar en science.nasa.gov (misión Curiosity)"
+		},
+		{
+			"id": "rover_mantenimiento",
+			"titulo": "El rover necesita mantenimiento",
+			"descripcion": "Cada salida desgasta al rover. Si el desgaste llega muy lejos se rompe, y arreglarlo lleva todo el día: ese día no se puede explorar.",
+			"consejo": "Hacé mantenimiento todos los días. Antes de salir mirá la barra de desgaste: si está alta, arreglá primero y explorá después. Con el rover gastado conviene evitar el terreno difícil.",
+			"al_iniciar": [
+				{
+					"recurso": "mantenimiento:rover",
+					"cantidad": -30
+				}
+			],
+			"estructura": "rover",
+			"opcion_a": {
+				"texto": "Mandar a alguien a arreglarlo ahora",
+				"gana": {
+					"recurso": "mantenimiento:rover",
+					"cantidad": 50
+				},
+				"pierde": {
+					"recurso": "elegir",
+					"duracion": 300,
+					"modo": "ocupado",
+					"motivo": "arreglando el rover"
+				}
+			},
+			"opcion_b": {
+				"texto": "Explorar igual, con cuidado",
+				"gana": {
+					"recurso": "desbloqueo",
+					"cantidad": 1
+				},
+				"pierde": [
+					{
+						"recurso": "elegir",
+						"duracion": 240,
+						"modo": "fuera",
+						"motivo": "explorando"
+					},
+					{
+						"recurso": "mantenimiento:rover",
+						"cantidad": 30
+					}
+				]
+			},
+			"dato_nasa": "Las ruedas de Curiosity son de aluminio y su piel es la mitad de gruesa que una moneda de 10 centavos de dólar. Desde 2013 tienen agujeros por las rocas filosas. Para cuidarlas, la NASA elige caminos con menos piedras, las revisa con fotos y en 2017 le mandó un programa nuevo que controla la velocidad de cada rueda.",
+			"fuente": "space.com/36161-curiosity-mars-rover-wheel-breaks-found.html; csmonitor.com/Science/2017/0324/What-can-NASA-do-to-save-Curiosity-s-wheels; digitaltrends.com/space/a-nasa-mars-rover-has-a-giant-hole-in-one-of-its-wheels"
 		}
 	]
 }

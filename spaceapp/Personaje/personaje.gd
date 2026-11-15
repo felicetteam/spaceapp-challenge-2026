@@ -3,7 +3,7 @@ class_name Personaje extends CharacterBody2D
 
 signal estado_actualizado(personaje: Personaje)
 
-enum Cabeza { FELICITTE, LAIKA, JUAN, NEIL }
+enum Cabeza { FELI, LAIKA, JUAN, ANDY }
 enum ModoLaburar { MANTENER, ALTERNAR }
 ## NINGUNA: control manual (teclado) o quieto. MOVER: va hacia un punto clicado.
 ## TRABAJAR: va a una máquina y trabaja dando vueltas alrededor.
@@ -12,21 +12,14 @@ enum ModoLaburar { MANTENER, ALTERNAR }
 enum Orden { NINGUNA, MOVER, TRABAJAR, USAR, PASEO }
 
 const NOMBRES := {
-	Cabeza.FELICITTE: "Félicette",
+	Cabeza.FELI: "Feli",
 	Cabeza.LAIKA: "Laika",
 	Cabeza.JUAN: "Juan",
-	Cabeza.NEIL: "Neil"
+	Cabeza.ANDY: "Andy"
 }
+# Las afinidades (salud, trabajo, investigación) de cada uno están en Personaje/afinidades.gd
 
-# Multiplicadores de gasto de Hambre y Sueño según la tabla de afinidades
-const FACTOR_SALUD := {
-	Cabeza.FELICITTE: 0.8, # Salud Positiva (-20% desgaste)
-	Cabeza.LAIKA: 1.0,     # Neutral
-	Cabeza.JUAN: 1.2,      # Salud Negativa (+20% desgaste)
-	Cabeza.NEIL: 1.0       # Neutral
-}
-
-@export var cabeza: Cabeza = Cabeza.NEIL:
+@export var cabeza: Cabeza = Cabeza.ANDY:
 	set(valor):
 		cabeza = valor
 		if is_node_ready():
@@ -69,8 +62,10 @@ const FACTOR_SALUD := {
 @export_range(0.1, 1.0) var velocidad_paseo := 0.6
 
 @export_group("Salud")
-## Con salud 0 queda inconsciente; se despierta cuando la salud vuelve a este valor.
-@export var umbral_despertar := 40.0
+## Con salud 0 (o con el sueño al máximo) queda inconsciente durante
+## Ajustes.tiempo_inconsciente segundos, sin importar dónde esté; después puede moverse.
+## Con la comida en 0 pierde esta cantidad de salud por segundo (x Ajustes.dano_hambre).
+@export var dano_por_hambre := 1.0
 
 @export_group("Encuentros")
 ## A qué distancia (px, entre pies) detecta a otro astronauta adelante en su camino.
@@ -115,10 +110,34 @@ var maquina_actual: Maquina = null
 var en_cama := false
 ## Salud 0: no responde a órdenes hasta que se recupera (la roomba lo lleva a una cama).
 var desmayado := false
+## El desmayo es por agotamiento (sueño al máximo), no por salud 0: la roomba lo lleva a una
+## cama común y se despierta al descansar.
+var dormido_agotado := false
+## Segundos que le quedan de Descansado (energía al 100: no baja) y de Satisfecho (comida al
+## 100: no baja). Con los dos a la vez está Feliz y trabaja más rápido.
+var _t_descansado := 0.0
+var _t_satisfecho := 0.0
+var _sueno_previo := 0.0
+var _hambre_previa := 0.0
+## Segundos que lleva inconsciente.
+var _t_inconsciente := 0.0
+## Segundos que le quedan sin poder desmayarse de nuevo, después de despertarse.
+var _t_gracia := 0.0
 ## Lo marca la roomba mientras lo transporta.
 var siendo_llevado := false
 ## La roomba que viene a buscarlo.
 var reservado_por: Node = null
+## Fuera de servicio por un evento crítico (ver Eventos): fuera del mapa u ocupado en su lugar.
+var en_evento := false
+var evento_fuera := false
+var motivo_evento := ""
+## Camina hacia la estructura de un evento crítico (ver Eventos): no acepta otras órdenes.
+## Lo pone en false al llegar, o si no pudo llegar (Eventos lo revisa para aplicar la decisión).
+var yendo_a_evento := false
+## true si llegó a la estructura del evento.
+var llego_a_evento := false
+## Segundos que le faltan para volver (lo actualiza Eventos).
+var tiempo_evento := 0.0
 ## Última vez que comió en el comedor (Time.get_ticks_msec()).
 var ultima_comida_ms := -1000000000
 ## Mueble que está usando con la orden USAR (por ejemplo, el comedor).
@@ -189,9 +208,17 @@ func _physics_process(delta: float) -> void:
 	if desmayado or siendo_llevado:
 		velocity = Vector2.ZERO
 		return
+	# Ocupado por un evento: se queda en su lugar laburando, sin aceptar órdenes
+	if en_evento:
+		velocity = Vector2.ZERO
+		return
+
+	# Camino a un evento: si la orden se cortó (por ejemplo, sin camino), ya no va
+	if yendo_a_evento and orden != Orden.MOVER:
+		yendo_a_evento = false
 
 	var dir := Vector2.ZERO
-	if controlado_por_jugador:
+	if controlado_por_jugador and not yendo_a_evento:
 		dir = Input.get_vector(accion_izquierda, accion_derecha, accion_arriba, accion_abajo)
 	# Mover con el teclado cancela cualquier orden de point and click
 	if dir != Vector2.ZERO and (orden != Orden.NINGUNA or _desvio != Desvio.NINGUNO):
@@ -206,6 +233,9 @@ func _physics_process(delta: float) -> void:
 			_mover_manual(dir)
 		Orden.MOVER:
 			if _seguir_camino(delta):
+				if yendo_a_evento:
+					yendo_a_evento = false
+					llego_a_evento = true
 				detener()
 		Orden.TRABAJAR:
 			_proceso_trabajo(delta)
@@ -290,7 +320,7 @@ func _capas() -> Array[AnimatedSprite2D]:
 
 ## Cuenta el tiempo quieto en idle y, cuando se cumple, sale a pasear.
 func _contar_idle() -> void:
-	if not pasear_en_idle or en_cama or desmayado or siendo_llevado:
+	if not pasear_en_idle or en_cama or desmayado or siendo_llevado or en_evento:
 		return
 	_t_idle -= get_physics_process_delta_time()
 	if _t_idle <= 0.0:
@@ -402,8 +432,77 @@ func detener() -> void:
 	_quedar_idle()
 	_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
 
+## true si ya llegó a su puesto en la máquina y está laburando.
+func esta_en_puesto() -> bool:
+	return orden == Orden.TRABAJAR and _en_puesto
+
 func esta_trabajando() -> bool:
 	return orden == Orden.TRABAJAR
+
+# --- Eventos críticos --------------------------------------------------------
+
+## Camina hasta la estructura de un evento (al punto alcanzable más cercano de destinos).
+## Mientras va no acepta órdenes. Devuelve false si no hay camino a ninguno.
+func ir_a_evento(destinos: Array[Vector2], motivo: String) -> bool:
+	if desmayado or siendo_llevado or en_evento:
+		return false
+	if en_cama:
+		for c in get_tree().get_nodes_in_group("camas"):
+			if c.ocupante == self:
+				c.levantar()
+	detener()
+	quiere_acostarse = false
+	llego_a_evento = false
+	var ordenados := destinos.duplicate()
+	var desde := pies()
+	ordenados.sort_custom(func(a, b): return desde.distance_squared_to(a) < desde.distance_squared_to(b))
+	for d in ordenados:
+		if desde.distance_to(d) < 4.0:
+			llego_a_evento = true  # ya está ahí
+			return true
+		orden = Orden.MOVER
+		if _calcular_camino(d):
+			yendo_a_evento = true
+			motivo_evento = motivo
+			mostrar_cartel("Va a: %s" % motivo, 2.0)
+			return true
+	detener()
+	return false
+
+## Lo saca de servicio por un evento. fuera = true: desaparece del mapa; false: se queda en su
+## lugar con la animación de laburo y no acepta órdenes.
+func iniciar_evento(fuera: bool, motivo: String, _segundos: float) -> void:
+	if en_cama:
+		for c in get_tree().get_nodes_in_group("camas"):
+			if c.ocupante == self:
+				c.levantar()
+	detener()
+	quiere_acostarse = false
+	en_evento = true
+	evento_fuera = fuera
+	motivo_evento = motivo
+	controlado_por_jugador = false
+	set_seleccionado(false)
+	if fuera:
+		visible = false
+		process_mode = Node.PROCESS_MODE_DISABLED  # también lo saca de la física
+	else:
+		set_laburando(true)
+		mostrar_cartel("Ocupado: %s" % motivo)
+
+func terminar_evento() -> void:
+	if not en_evento:
+		return
+	en_evento = false
+	if evento_fuera:
+		process_mode = Node.PROCESS_MODE_INHERIT
+		visible = true
+		# Reaparece en su punto de inicio
+		global_position += _punto_inicio - pies()
+	evento_fuera = false
+	motivo_evento = ""
+	_quedar_idle()
+	mostrar_cartel("De vuelta")
 
 ## true si está en una tarea: trabajando en una máquina o usando un mueble (comedor).
 func esta_en_tarea() -> bool:
@@ -418,7 +517,7 @@ func camino_restante() -> PackedVector2Array:
 ## Si se lo puede correr para dejar pasar a otro.
 ## No se corre si está acostado o si el jugador lo maneja con el teclado sin una orden.
 func puede_ceder() -> bool:
-	if en_cama or desmayado or siendo_llevado:
+	if en_cama or desmayado or siendo_llevado or en_evento:
 		return false
 	return not (controlado_por_jugador and orden == Orden.NINGUNA)
 
@@ -451,6 +550,12 @@ func _soltar_maquina() -> void:
 func _no_responde() -> bool:
 	if desmayado or siendo_llevado:
 		mostrar_cartel("Inconsciente")
+		return true
+	if en_evento:
+		mostrar_cartel("Ocupado: %s" % motivo_evento)
+		return true
+	if yendo_a_evento:
+		mostrar_cartel("En camino: %s" % motivo_evento)
 		return true
 	return false
 
@@ -560,7 +665,10 @@ func _proceso_trabajo(delta: float) -> void:
 		return
 
 	velocity = Vector2.ZERO
-	maquina_actual.trabajar(delta)
+	var mult := afinidad("investigacion") if maquina_actual is Escritorio else afinidad("trabajo")
+	if esta_feliz():
+		mult *= Ajustes.actual().bonus_feliz
+	maquina_actual.trabajar(delta * mult)
 	# Tarea terminada: la máquina quedó al 100%
 	if maquina_actual.tiene_desgaste and maquina_actual.mantenimiento >= 100.0:
 		terminar_tarea("%s lista" % maquina_actual.nombre_maquina)
@@ -802,7 +910,13 @@ func _crear_cartel_y_sonido() -> void:
 # Llamado desde base.gd en cada frame con las condiciones de la base
 # Llamado desde base.gd en cada frame con los recursos de la base
 func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_particulas: bool) -> void:
-	var factor_afin: float = FACTOR_SALUD.get(cabeza, 1.0)
+	# Fuera de la base por un evento: sus valores quedan como estaban hasta que vuelva
+	if en_evento and evento_fuera:
+		var t := int(maxf(tiempo_evento, 0.0))
+		estado_alerta = "Fuera %d:%02d" % [t / 60, t % 60]
+		estado_actualizado.emit(self)
+		return
+	var factor_afin := afinidad("salud")
 
 	# 1. El oxígeno marca qué tan rápido baja la vida: con 100% es normal, con 0% va 5 veces más rápido
 	var mult_o2 := 1.0 + (100.0 - oxigeno) / 25.0
@@ -812,11 +926,36 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 	var gasto_base := 0.25 * factor_afin * delta * mult_o2
 	var extra_trabajo := 1.3 if laburando and orden == Orden.TRABAJAR else 1.0  # comer no da más hambre
 
-	if not durmiendo:
-		hambre = clampf(hambre + gasto_base * extra_trabajo * aj.hambre, 0.0, 100.0)
-		sueno = clampf(sueno + gasto_base * aj.sueno, 0.0, 100.0)
-	else:
+	_t_descansado = maxf(0.0, _t_descansado - delta)
+	_t_satisfecho = maxf(0.0, _t_satisfecho - delta)
+	if desmayado:
+		# Inconsciente: no gasta, y recupera energía más lento (en la cama la recupera la cama)
+		if not en_cama:
+			sueno = maxf(0.0, sueno - ritmo_recuperar_sueno() * delta)
+	elif not durmiendo:
+		if _t_satisfecho <= 0.0:
+			hambre = clampf(hambre + gasto_base * extra_trabajo * aj.hambre, 0.0, 100.0)
+		if _t_descansado <= 0.0:
+			sueno = clampf(sueno + ritmo_cansancio() * factor_afin * mult_o2 * aj.sueno * delta, 0.0, 100.0)
+	if durmiendo:
 		dano_ambiental = maxf(0.0, dano_ambiental - 2.5 * delta)
+
+	# Llegó al 100 de energía o de comida: un rato sin que baje
+	var era_feliz := esta_feliz()
+	if sueno <= 0.0 and _sueno_previo > 0.0:
+		_t_descansado = aj.duracion_descansado
+		mostrar_cartel("¡Descansado!")
+	if hambre <= 0.0 and _hambre_previa > 0.0:
+		_t_satisfecho = aj.duracion_satisfecho
+		mostrar_cartel("¡Satisfecho!")
+	if esta_feliz() and not era_feliz:
+		mostrar_cartel("¡Feliz! Trabaja más rápido", 2.0)
+	_sueno_previo = sueno
+	_hambre_previa = hambre
+
+	# Comida en 0: la salud baja directamente
+	if hambre >= 100.0:
+		dano_ambiental = clampf(dano_ambiental + dano_por_hambre * aj.dano_hambre * delta, 0.0, 100.0)
 
 	# 3. Daño ambiental directo
 	var dano_extra := 0.0
@@ -835,49 +974,116 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 	var salud_base := (saciedad + descanso) * 0.5
 	salud = clampf(salud_base - dano_ambiental, 0.0, 100.0)
 
-	# 5. Inconsciencia
-	if not desmayado and salud <= 0.0:
-		_desmayar()
-	elif desmayado and salud >= umbral_despertar:
-		_despertar()
+	# 5. Inconsciencia: dura un tiempo fijo, en el piso o en cualquier cama
+	_t_gracia = maxf(0.0, _t_gracia - delta)
+	if desmayado:
+		_t_inconsciente += delta
+		if dormido_agotado and salud <= 0.0:
+			dormido_agotado = false  # ahora es por salud: la roomba lo lleva al hospital
+		# Mientras la roomba lo lleva espera a que lo deje en la cama
+		if _t_inconsciente >= aj.tiempo_inconsciente and not siendo_llevado:
+			_despertar()
+	elif _t_gracia <= 0.0:
+		if salud <= 0.0:
+			_desmayar()
+		elif sueno >= 100.0:
+			_desmayar(true)  # agotado: se duerme donde esté
 
 	_actualizar_alerta(oxigeno, radiacion, lluvia_particulas)
 	_actualizar_barra_flotante()
 	estado_actualizado.emit(self)
 
-func _desmayar() -> void:
+## Sueño que recupera por segundo durmiendo: de 0 a 100 en Ajustes.noche_para_dormir de la noche.
+## Inconsciente, Ajustes.recuperacion_inconsciente de eso. Lo usan las camas y el piso.
+func ritmo_recuperar_sueno() -> float:
+	var aj := Ajustes.actual()
+	var ritmo := 100.0 / maxf(_horas_durmiendo() * _segundos_por_hora(), 0.01) * aj.velocidad_dormir
+	if desmayado:
+		ritmo *= aj.recuperacion_inconsciente
+	return ritmo
+
+
+## Sueño que gana por segundo despierto: lo que recuperó en la noche le dura el resto del sol.
+func ritmo_cansancio() -> float:
+	var horas_despierto := maxf(Recursos.DURACION_SOL_HORAS - _horas_durmiendo(), 1.0)
+	return 100.0 / (horas_despierto * _segundos_por_hora())
+
+
+func _horas_durmiendo() -> float:
+	var r := Recursos.de(self)
+	var noche := r.horas_de_noche() if r != null else 12.15
+	return noche * Ajustes.actual().noche_para_dormir
+
+
+func _segundos_por_hora() -> float:
+	var r := Recursos.de(self)
+	return r.segundos_por_hora() if r != null else 60.0
+
+
+func esta_descansado() -> bool:
+	return _t_descansado > 0.0
+
+
+func esta_satisfecho() -> bool:
+	return _t_satisfecho > 0.0
+
+
+## Descansado y satisfecho a la vez: trabaja Ajustes.bonus_feliz veces más rápido.
+func esta_feliz() -> bool:
+	return esta_descansado() and esta_satisfecho()
+
+
+func _desmayar(por_sueno := false) -> void:
 	detener()
+	yendo_a_evento = false
 	desmayado = true
+	dormido_agotado = por_sueno
+	_t_inconsciente = 0.0
 	corriendo = false
 	laburando = false
 	_pausar_animaciones()
 	if not en_cama:
 		rotation = -PI / 2.0  # queda tirado en el piso
-	mostrar_cartel("¡Inconsciente!")
+	mostrar_cartel("¡Se quedó dormido!" if por_sueno else "¡Inconsciente!")
 
 func _despertar() -> void:
 	desmayado = false
+	dormido_agotado = false
+	_t_gracia = Ajustes.actual().gracia_desmayo
 	_actualizar_animaciones(true)  # vuelve a animarse
 	if not en_cama and not siendo_llevado:
 		rotation = 0.0
-	mostrar_cartel("Se despertó")
+	mostrar_cartel("¡Puede moverse!", 2.5)
+	var r := Recursos.de(self)
+	if r != null:
+		r.avisar("%s recuperó la conciencia y puede moverse" % obtener_nombre(), 0, self)
 
 func comer(cantidad: float = 40.0, bonus_calidad: float = 0.0) -> void:
 	hambre = maxf(0.0, hambre - cantidad)
 	dano_ambiental = maxf(0.0, dano_ambiental - bonus_calidad)
+
+## Multiplicador de Personaje/afinidades.gd: "salud", "trabajo" o "investigacion".
+func afinidad(tipo: String) -> float:
+	return Afinidades.de(obtener_nombre(), tipo)
 
 func obtener_nombre() -> String:
 	return NOMBRES.get(cabeza, "Astronauta")
 
 func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 	if desmayado:
-		estado_alerta = "Inconsciente"
+		var falta := int(ceilf(maxf(Ajustes.actual().tiempo_inconsciente - _t_inconsciente, 0.0)))
+		estado_alerta = ("Dormido (agotado) %ds" if dormido_agotado else "Inconsciente %ds") % falta
+	elif en_evento:
+		var t := int(maxf(tiempo_evento, 0.0))
+		estado_alerta = "Ocupado %d:%02d" % [t / 60, t % 60]
 	elif lluvia and en_exterior:
 		estado_alerta = "¡Partículas!"
 	elif oxigeno < 20.0:
 		estado_alerta = "¡Sin O2!"
 	elif radiacion > 80.0:
 		estado_alerta = "¡Radiación!"
+	elif hambre >= 100.0:
+		estado_alerta = "¡Sin comida!"
 	elif hambre > 70.0:
 		estado_alerta = "Hambre"
 	elif sueno > 75.0:
@@ -885,9 +1091,18 @@ func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 	elif en_cama and durmiendo:
 		estado_alerta = "Descansando"
 	elif orden == Orden.TRABAJAR:
-		estado_alerta = "Trabajando"
+		if _en_puesto and maquina_actual != null and maquina_actual.en_equipo():
+			estado_alerta = "¡Trabajo en Equipo!"
+		else:
+			estado_alerta = "Trabajando (feliz)" if esta_feliz() else "Trabajando"
 	elif orden == Orden.USAR and _usando:
 		estado_alerta = "Comiendo"
+	elif esta_feliz():
+		estado_alerta = "Feliz"
+	elif esta_descansado():
+		estado_alerta = "Descansado"
+	elif esta_satisfecho():
+		estado_alerta = "Satisfecho"
 	else:
 		estado_alerta = "Bien"
 

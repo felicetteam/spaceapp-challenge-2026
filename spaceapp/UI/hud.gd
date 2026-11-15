@@ -8,7 +8,8 @@ signal maquina_clicada(maquina: Maquina)
 ## Pide centrar la cámara en algo (una máquina con problemas, el objeto de una alerta).
 signal enfocar(objetivo: Node2D)
 
-const ANCHO_TARJETA := 150
+## Ancho fijo de la columna izquierda: no crece con los textos largos (esos se desplazan).
+const ANCHO_TARJETA := 188
 
 @onready var contenedor: VBoxContainer = $Columna/ContenedorTripulacion
 @onready var titulo_mantenimiento: Label = $Columna/TituloMantenimiento
@@ -31,6 +32,8 @@ var _scroll_maquinas: ScrollContainer
 var _alertas: VBoxContainer
 var _maquinas: Array[Maquina] = []
 var _boton_atencion: Button
+var _atencion_linea1: Label
+var _atencion_linea2: Label
 var _idx_atencion := -1
 
 func _ready() -> void:
@@ -41,14 +44,16 @@ func _ready() -> void:
 	_panel_recursos.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vbox := _vbox(3)
 	_panel_recursos.add_child(vbox)
-	_lbl_reloj = _label("Sol 1 · 00:00", 11)
-	vbox.add_child(_lbl_reloj)
+	var m_reloj := _marquesina("Sol 1 · 00:00", 11)
+	_lbl_reloj = m_reloj.label
+	vbox.add_child(m_reloj)
 	_caja_barras = _vbox(3)
 	vbox.add_child(_caja_barras)
 	_agregar_barra_recurso("energia", "Energía", Color(0.95, 0.8, 0.2))
 	_agregar_barra_recurso("oxigeno", "Oxígeno", Color(0.35, 0.75, 1.0))
 	_agregar_barra_recurso("radiacion", "Radiación", Color(0.75, 0.4, 0.95))
-	_aviso_comunicaciones = _label("Sin comunicaciones:\nno se ven recursos ni desgastes", 9)
+	_aviso_comunicaciones = _label("Sin comunicaciones: no se ven recursos ni desgastes", 9)
+	_aviso_comunicaciones.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_aviso_comunicaciones.modulate = Color(1.0, 0.55, 0.45)
 	vbox.add_child(_aviso_comunicaciones)
 	columna.add_child(_panel_recursos)
@@ -60,7 +65,23 @@ func _ready() -> void:
 	_boton_atencion = Button.new()
 	_boton_atencion.focus_mode = Control.FOCUS_NONE  # que no se quede con las flechas del teclado
 	_boton_atencion.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_boton_atencion.custom_minimum_size = Vector2(ANCHO_TARJETA, 0)
+	_boton_atencion.custom_minimum_size = Vector2(ANCHO_TARJETA, 40)
+	_boton_atencion.clip_contents = true
+	# El texto va en dos líneas que se desplazan si no entran (el botón no se ensancha)
+	var lineas := _vbox(1)
+	lineas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lineas.offset_left = 8
+	lineas.offset_right = -8
+	lineas.offset_top = 5
+	lineas.offset_bottom = -5
+	lineas.alignment = BoxContainer.ALIGNMENT_CENTER
+	var m1 := _marquesina("", 10)
+	var m2 := _marquesina("", 10)
+	_atencion_linea1 = m1.label
+	_atencion_linea2 = m2.label
+	lineas.add_child(m1)
+	lineas.add_child(m2)
+	_boton_atencion.add_child(lineas)
 	_boton_atencion.add_theme_font_size_override("font_size", 10)
 	_boton_atencion.add_theme_stylebox_override("normal", _estilo_panel())
 	_boton_atencion.add_theme_stylebox_override("hover", _estilo_panel())
@@ -154,12 +175,16 @@ func _crear_tarjeta(astro: Personaje, numero: int) -> PanelContainer:
 	var fila_top := _hbox(0)
 	vbox.add_child(fila_top)
 
-	var lbl_nombre := _label("[%d] %s" % [numero, astro.obtener_nombre()], 11)
-	lbl_nombre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fila_top.add_child(lbl_nombre)
+	fila_top.add_theme_constant_override("separation", 6)
+	var m_nombre := _marquesina("[%d] %s" % [numero, astro.obtener_nombre()], 11)
+	m_nombre.size_flags_stretch_ratio = 0.9
+	fila_top.add_child(m_nombre)
 
-	var lbl_estado := _label("Bien", 10)
-	fila_top.add_child(lbl_estado)
+	# El estado puede ser largo ("Dormido (agotado) 12s"): se desplaza en su lugar
+	var m_estado := _marquesina("Bien", 10, HORIZONTAL_ALIGNMENT_RIGHT)
+	m_estado.size_flags_stretch_ratio = 1.1
+	var lbl_estado := m_estado.label
+	fila_top.add_child(m_estado)
 
 	# Barra de Salud
 	var bar_salud := _crear_barra(10, Color(0.2, 0.85, 0.35))
@@ -267,7 +292,7 @@ func _on_maquina_actualizada(m: Maquina) -> void:
 
 	# Borde rojo cuando está crítica o fuera de servicio
 	var estilo: StyleBoxFlat = ui["estilo_panel"]
-	estilo.border_color = Color(0.9, 0.25, 0.25) if m.mantenimiento <= 30.0 else Color(0.25, 0.28, 0.35)
+	estilo.border_color = Color(0.9, 0.25, 0.25) if m.mantenimiento <= m.umbral_critico else Color(0.25, 0.28, 0.35)
 
 # --- Recursos y alertas ------------------------------------------------------
 
@@ -336,6 +361,109 @@ func agregar_alerta(texto: String, nivel: int = 1, objetivo: Node2D = null) -> v
 	tween.tween_property(panel, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(panel.queue_free)
 
+# --- Eventos críticos --------------------------------------------------------
+
+## Muestra un evento en el centro de la pantalla con sus dos opciones. El juego está en pausa
+## mientras tanto; al elegir se llama a `al_elegir` con "opcion_a" u "opcion_b".
+func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_elegir: Callable,
+		efectos_iniciales: String = "", bloqueadas: Array[String] = []) -> void:
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.6)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP  # bloquea los clics al mapa
+	fondo.process_mode = Node.PROCESS_MODE_ALWAYS   # funciona con el juego en pausa
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fondo)
+
+	var centro := CenterContainer.new()
+	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(centro)
+
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(0.9, 0.25, 0.25)
+	estilo.set_border_width_all(2)
+	estilo.content_margin_left = 16
+	estilo.content_margin_right = 16
+	estilo.content_margin_top = 12
+	estilo.content_margin_bottom = 12
+	var panel := _crear_panel(estilo, Vector2(420, 0))
+	centro.add_child(panel)
+
+	var vbox := _vbox(10)
+	panel.add_child(vbox)
+	var titulo := _label("EVENTO CRÍTICO · %s" % String(ev.get("titulo", "")).to_upper(), 14)
+	titulo.modulate = Color(1.0, 0.5, 0.45)
+	vbox.add_child(titulo)
+	vbox.add_child(_texto_evento(String(ev.get("descripcion", "")), 12, Color.WHITE))
+	if efectos_iniciales != "":
+		vbox.add_child(_texto_evento("Efecto: " + efectos_iniciales, 11, Color(1.0, 0.75, 0.4)))
+	if ev.has("consejo"):
+		vbox.add_child(_texto_evento("Qué hacer: " + String(ev["consejo"]), 11, Color(0.6, 0.95, 0.7)))
+
+	for clave in ["opcion_a", "opcion_b"]:
+		var opcion: Dictionary = ev.get(clave, {})
+		var efectos := efectos_a if clave == "opcion_a" else efectos_b
+		var boton := Button.new()
+		boton.focus_mode = Control.FOCUS_NONE
+		boton.text = String(opcion.get("texto", clave)) + ("\n" + efectos if efectos != "" else "")
+		boton.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		boton.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		boton.custom_minimum_size = Vector2(388, 44)
+		boton.add_theme_font_size_override("font_size", 11)
+		if bloqueadas.has(clave):
+			boton.disabled = true
+			boton.text += "\n(no hay astronautas disponibles)"
+		boton.pressed.connect(func():
+			fondo.queue_free()
+			al_elegir.call(clave))
+		vbox.add_child(boton)
+
+	# Dato real de la NASA y su fuente
+	if ev.has("dato_nasa"):
+		vbox.add_child(_texto_evento("Dato real de la NASA: " + String(ev["dato_nasa"]), 10, Color(0.6, 0.8, 1.0)))
+	if ev.has("fuente"):
+		vbox.add_child(_texto_evento("Fuente: " + String(ev["fuente"]), 9, Color(0.65, 0.68, 0.75)))
+
+## Lista para elegir qué astronauta hace la tarea de un evento (con el juego en pausa).
+func elegir_astronauta(candidatos: Array[Personaje], tarea: String, al_elegir: Callable) -> void:
+	var fondo := ColorRect.new()
+	fondo.color = Color(0, 0, 0, 0.6)
+	fondo.mouse_filter = Control.MOUSE_FILTER_STOP
+	fondo.process_mode = Node.PROCESS_MODE_ALWAYS
+	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(fondo)
+	var centro := CenterContainer.new()
+	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fondo.add_child(centro)
+	var estilo := _estilo_panel()
+	estilo.border_color = Color(0.3, 0.85, 1.0)
+	estilo.set_border_width_all(2)
+	var panel := _crear_panel(estilo, Vector2(300, 0))
+	centro.add_child(panel)
+	var vbox := _vbox(8)
+	panel.add_child(vbox)
+	var titulo := _texto_evento("¿Quién va? · %s" % tarea, 13, Color(0.6, 0.9, 1.0))
+	titulo.custom_minimum_size = Vector2(268, 0)
+	vbox.add_child(titulo)
+	for p in candidatos:
+		var boton := Button.new()
+		boton.focus_mode = Control.FOCUS_NONE
+		boton.text = "%s · salud %d%% · %s" % [p.obtener_nombre(), roundi(p.salud), p.estado_alerta]
+		boton.custom_minimum_size = Vector2(268, 32)
+		boton.add_theme_font_size_override("font_size", 11)
+		boton.pressed.connect(func():
+			fondo.queue_free()
+			al_elegir.call(p))
+		vbox.add_child(boton)
+
+func _texto_evento(texto: String, tam: int, color: Color) -> Label:
+	var l := _label(texto, tam)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(388, 0)
+	l.modulate = color
+	return l
+
 # --- Máquinas con problemas --------------------------------------------------
 
 ## Las máquinas que necesitan atención (con borde de estado), de la más urgente a la menos.
@@ -350,16 +478,18 @@ func _maquinas_con_problemas() -> Array[Maquina]:
 func _actualizar_boton_atencion() -> void:
 	var lista := _maquinas_con_problemas()
 	if lista.is_empty():
-		_boton_atencion.text = "Máquinas: todo en orden"
+		_atencion_linea1.text = "Máquinas: todo en orden"
+		_atencion_linea2.text = ""
+		_atencion_linea2.get_parent().visible = false
 		_boton_atencion.disabled = true
 		_boton_atencion.modulate = Color(0.6, 0.95, 0.65)
 		return
 	_boton_atencion.disabled = false
 	var peor := lista[0]
 	var n := lista.size()
-	_boton_atencion.text = "%d %s atención\nPeor: %s %d%% (clic para ver)" % [
-			n, "máquina necesita" if n == 1 else "máquinas necesitan",
-			peor.nombre_maquina, roundi(peor.mantenimiento)]
+	_atencion_linea1.text = "%d %s atención" % [n, "máquina necesita" if n == 1 else "máquinas necesitan"]
+	_atencion_linea2.text = "Peor: %s %d%% (clic para ver)" % [peor.nombre_maquina, roundi(peor.mantenimiento)]
+	_atencion_linea2.get_parent().visible = true
 	_boton_atencion.modulate = Color(1.0, 0.45, 0.4) if peor.mantenimiento <= peor.umbral_critico \
 			else Color(1.0, 0.85, 0.35)
 
@@ -410,6 +540,54 @@ func _label(texto: String, tam_fuente: int) -> Label:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	l.add_theme_font_size_override("font_size", tam_fuente)
 	return l
+
+## Texto de una línea con ancho fijo: si no entra, se desplaza de un lado al otro para leerlo.
+func _marquesina(texto: String, tam_fuente: int, alineacion := HORIZONTAL_ALIGNMENT_LEFT) -> Marquesina:
+	var m := Marquesina.new(_label(texto, tam_fuente), alineacion)
+	m.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return m
+
+
+## Recorta un Label al ancho que le dé el contenedor (no lo ensancha) y, si el texto es más
+## largo, lo mueve despacio de izquierda a derecha y vuelve, con una pausa en cada punta.
+class Marquesina extends Control:
+	const VELOCIDAD := 22.0  # píxeles por segundo
+	const PAUSA := 1.2       # segundos quieto en cada punta
+	var label: Label
+	var alineacion := HORIZONTAL_ALIGNMENT_LEFT
+	var _t := 0.0
+
+	func _init(l: Label, alinear := HORIZONTAL_ALIGNMENT_LEFT) -> void:
+		label = l
+		alineacion = alinear
+		clip_contents = true
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(label)
+
+	func _process(delta: float) -> void:
+		var tam := label.get_minimum_size()
+		if custom_minimum_size.y != tam.y:
+			custom_minimum_size = Vector2(0, tam.y)
+		label.size = tam
+		var sobra := tam.x - size.x
+		if sobra <= 0.5:
+			_t = 0.0
+			label.position = Vector2(size.x - tam.x if alineacion == HORIZONTAL_ALIGNMENT_RIGHT else 0.0, 0)
+			return
+		var recorrido := sobra / VELOCIDAD
+		var ciclo := 2.0 * (PAUSA + recorrido)
+		_t = fmod(_t + delta, ciclo)
+		var x := 0.0
+		if _t < PAUSA:
+			x = 0.0
+		elif _t < PAUSA + recorrido:
+			x = (_t - PAUSA) * VELOCIDAD
+		elif _t < 2.0 * PAUSA + recorrido:
+			x = sobra
+		else:
+			x = sobra - (_t - 2.0 * PAUSA - recorrido) * VELOCIDAD
+		label.position = Vector2(-x, 0)
+
 
 func _crear_barra(alto: int, color_relleno: Color) -> ProgressBar:
 	var pb := ProgressBar.new()

@@ -18,6 +18,8 @@ signal fuera_de_servicio(maquina: Maquina)
 @export_range(0.0, 100.0) var mantenimiento := 100.0
 ## Si es false, no se desgasta ni aparece en el panel de mantenimiento (por ejemplo, el escritorio).
 @export var tiene_desgaste := true
+## true desde que el mantenimiento llegó a 0 hasta que la reparan por encima de umbral_critico.
+var averiada := false
 ## Cuánto baja por segundo sin radiación (la radiación lo multiplica hasta x3).
 @export var desgaste_por_segundo := 0.15
 ## Cuánto sube por segundo por cada astronauta que está laburando en ella.
@@ -78,10 +80,15 @@ func _process(delta: float) -> void:
 		var mult := recursos().multiplicador_desgaste() if recursos() != null else 1.0
 		mult *= Ajustes.actual().desgaste_de(tipo_ajuste())
 		mantenimiento = clampf(mantenimiento - desgaste_por_segundo * mult * delta, 0.0, 100.0)
-		var fuera := mantenimiento <= 0.0
-		if fuera and not _estaba_fuera:
+		# Rota (mantenimiento 0) queda averiada hasta que la reparen por encima de umbral_critico
+		# (es decir, hasta volver al amarillo); recién ahí vuelve a funcionar.
+		if mantenimiento <= 0.0:
+			averiada = true
+		elif averiada and mantenimiento > umbral_critico:
+			averiada = false
+		if averiada and not _estaba_fuera:
 			fuera_de_servicio.emit(self)
-		_estaba_fuera = fuera
+		_estaba_fuera = averiada
 
 	var activa := funcionando()
 	if activa:
@@ -110,7 +117,7 @@ func recursos() -> Recursos:
 
 ## true si tiene mantenimiento y (si la necesita) energía.
 func funcionando() -> bool:
-	if tiene_desgaste and mantenimiento <= 0.0:
+	if tiene_desgaste and averiada:
 		return false
 	if requiere_energia and (recursos() == null or not recursos().hay_energia()):
 		return false
@@ -119,7 +126,7 @@ func funcionando() -> bool:
 
 ## Energía que pide este frame (la suma Recursos).
 func consumo_energia() -> float:
-	if requiere_energia and (not tiene_desgaste or mantenimiento > 0.0):
+	if requiere_energia and (not tiene_desgaste or not averiada):
 		return consumo
 	return 0.0
 
@@ -133,6 +140,8 @@ func trabajar(delta: float) -> void:
 func reparar(delta: float) -> void:
 	if tiene_desgaste:
 		var mult := Ajustes.actual().trabajo_de(tipo_ajuste())
+		# Trabajo en equipo: cada astronauta extra en la máquina acelera la reparación
+		mult *= 1.0 + Ajustes.actual().bonus_equipo * maxi(trabajadores_activos() - 1, 0)
 		mantenimiento = clampf(mantenimiento + reparacion_por_segundo * mult * delta, 0.0, 100.0)
 
 
@@ -151,26 +160,48 @@ func quitar_trabajador(p: Personaje) -> void:
 	trabajadores.erase(p)
 
 
+## Cuántos astronautas están reparando ahora (ya en su puesto, no los que vienen caminando).
+func trabajadores_activos() -> int:
+	var n := 0
+	for p in trabajadores:
+		if is_instance_valid(p) and p.esta_en_puesto():
+			n += 1
+	return n
+
+
+## true si hay más de un astronauta reparando a la vez.
+func en_equipo() -> bool:
+	return tiene_desgaste and trabajadores_activos() > 1
+
+
 func obtener_estado() -> String:
-	if tiene_desgaste and mantenimiento <= 0.0:
-		return "Fuera de servicio"
+	if tiene_desgaste and averiada:
+		if mantenimiento <= 0.0:
+			return "Fuera de servicio"
+		return "Averiada: reparar hasta %d%%" % roundi(umbral_critico)
 	if requiere_energia and recursos() != null and not recursos().hay_energia():
 		return "Sin energía"
 	if not tiene_desgaste:
 		return "Operativa"
-	if mantenimiento > 60.0:
+	if mantenimiento >= umbral_borde:
 		return "Operativa"
-	elif mantenimiento > 30.0:
+	elif mantenimiento > umbral_critico:
 		return "Desgastada"
 	return "Crítica"
 
 
+## Mismo criterio que el borde: verde sin borde; debajo de umbral_borde pasa de amarillo a rojo,
+## y desde umbral_critico es rojo. Lo usan la barra sobre la máquina y el panel del HUD.
 func color_estado() -> Color:
-	if mantenimiento > 60.0:
+	if not tiene_desgaste or mantenimiento >= umbral_borde:
 		return Color(0.2, 0.85, 0.35)
-	elif mantenimiento > 30.0:
-		return Color(0.95, 0.75, 0.15)
-	return Color(0.9, 0.2, 0.2)
+	return color_desgaste()
+
+
+## Color del borde y de la barra cuando hay desgaste (amarillo -> rojo).
+func color_desgaste() -> Color:
+	var t := clampf(inverse_lerp(umbral_borde, umbral_critico, mantenimiento), 0.0, 1.0)
+	return Color(1.0, 0.85, 0.1).lerp(Color(0.95, 0.12, 0.08), t)
 
 
 ## Rectángulo global del sprite (sirve para clics, puestos de trabajo y bloqueo de caminos).
@@ -244,9 +275,7 @@ func _actualizar_borde() -> void:
 	_material_borde.set_shader_parameter("activo", visible_borde)
 	if not visible_borde:
 		return
-	var t := clampf(inverse_lerp(umbral_borde, umbral_critico, mantenimiento), 0.0, 1.0)
-	var color := Color(1.0, 0.85, 0.1).lerp(Color(0.95, 0.12, 0.08), t)
-	_material_borde.set_shader_parameter("color_borde", color)
+	_material_borde.set_shader_parameter("color_borde", color_desgaste())
 	_material_borde.set_shader_parameter("parpadeo", mantenimiento <= umbral_critico)
 
 
