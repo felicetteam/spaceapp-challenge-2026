@@ -69,7 +69,7 @@ var _lista_charlas: VBoxContainer
 var diario: Node = null
 const VentanaInfo := preload("res://UI/ventana_info.gd")
 ## Muestra los botones de prueba (desbloquear investigación, +25% de progreso).
-const MOSTRAR_DEBUG := true
+const MOSTRAR_DEBUG := false
 var _ventana_info: Control = null
 
 func _ready() -> void:
