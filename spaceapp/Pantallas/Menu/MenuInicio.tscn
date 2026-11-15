@@ -70,9 +70,9 @@ text = "Salir"
 
 [node name="TextureRect" type="TextureRect" parent="Menu" unique_id=1858926698]
 layout_mode = 0
-offset_left = 1025.0
+offset_left = 1015.0
 offset_top = 577.0
-offset_right = 1127.3256
-offset_bottom = 617.0
+offset_right = 1134.0
+offset_bottom = 626.0
 texture = ExtResource("4_ynx6h")
 expand_mode = 3
