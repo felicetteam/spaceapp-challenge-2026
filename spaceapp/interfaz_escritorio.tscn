@@ -1,0 +1,75 @@
+[gd_scene format=3 uid="uid://cu2j6u8tjhl57"]
+
+[ext_resource type="Texture2D" uid="uid://c2bkx34mx80h6" path="res://Muebles/Escritorio/compu.png" id="1_2j0k4"]
+[ext_resource type="Script" uid="uid://2p4e6he4kc2q" path="res://interfaz_escritorio.gd" id="1_rcq1x"]
+
+[node name="InterfazEscritorio" type="Control" unique_id=339074664]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_rcq1x")
+
+[node name="FondoOscuro" type="ColorRect" parent="." unique_id=1787205379]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.64705884)
+
+[node name="ContenedorProporcion" type="AspectRatioContainer" parent="." unique_id=2066601123]
+layout_mode = 1
+anchors_preset = -1
+offset_left = 24.0
+offset_top = 24.0
+offset_right = -24.0
+offset_bottom = -24.0
+ratio = 0.86
+
+[node name="FondoCompu" type="TextureRect" parent="ContenedorProporcion" unique_id=1675222708]
+texture_filter = 1
+layout_mode = 2
+texture = ExtResource("1_2j0k4")
+expand_mode = 1
+
+[node name="AreaPantalla" type="Control" parent="ContenedorProporcion/FondoCompu" unique_id=915580693]
+layout_mode = 1
+offset_right = 1.0
+offset_bottom = 1.0
+
+[node name="MarginContainer" type="MarginContainer" parent="ContenedorProporcion/FondoCompu/AreaPantalla" unique_id=1365785132]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContenedorProporcion/FondoCompu/AreaPantalla/MarginContainer" unique_id=1656922440]
+layout_mode = 2
+
+[node name="TituloTerminal" type="Label" parent="ContenedorProporcion/FondoCompu/AreaPantalla/MarginContainer/VBoxContainer" unique_id=934918255]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.2, 1, 0.2, 1)
+text = "> TERMINAL DE INVESTIGACION"
+
+[node name="BarraInvestigacion" type="ProgressBar" parent="ContenedorProporcion/FondoCompu/AreaPantalla/MarginContainer/VBoxContainer" unique_id=1528088314]
+layout_mode = 2
+
+[node name="BotonApagado" type="Button" parent="ContenedorProporcion/FondoCompu" unique_id=327618302]
+layout_mode = 1
+anchors_preset = -1
+anchor_left = 0.855
+anchor_top = 0.772
+anchor_right = 0.928
+anchor_bottom = 0.814
+tooltip_text = "Apagar monitor (ESC)"
+mouse_default_cursor_shape = 2
