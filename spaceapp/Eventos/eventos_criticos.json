@@ -1,0 +1,49 @@
+{
+	"eventos": [
+		{
+			"id": "tormenta_polvo",
+			"titulo": "Tormenta de polvo",
+			"descripcion": "Una tormenta de polvo cubre los paneles solares. Podemos salir a limpiarlos ahora o esperar a que pase.",
+			"opcion_a": {
+				"texto": "Salir a limpiar los paneles",
+				"gana": { "recurso": "energia", "cantidad": 25 },
+				"pierde": { "recurso": "cualquiera", "duracion": 120, "modo": "fuera", "motivo": "limpiando paneles" }
+			},
+			"opcion_b": {
+				"texto": "Esperar adentro",
+				"gana": { "recurso": "descanso", "cantidad": 15 },
+				"pierde": { "recurso": "mantenimiento:fotovoltaica", "cantidad": 30 }
+			}
+		},
+		{
+			"id": "fuga_oxigeno",
+			"titulo": "Fuga de oxígeno",
+			"descripcion": "Se detectó una microfisura en un módulo. Podemos sellarla de inmediato desviando energía, o que Juan la repare a mano.",
+			"opcion_a": {
+				"texto": "Sellar con energía de reserva",
+				"gana": { "recurso": "oxigeno", "cantidad": 20 },
+				"pierde": { "recurso": "energia", "cantidad": 30 }
+			},
+			"opcion_b": {
+				"texto": "Que Juan la repare",
+				"gana": { "recurso": "oxigeno", "cantidad": 10 },
+				"pierde": { "recurso": "Juan", "duracion": 240, "modo": "ocupado", "motivo": "reparando la fisura" }
+			}
+		},
+		{
+			"id": "llamado_tierra",
+			"titulo": "Llamado de la Tierra",
+			"descripcion": "Control de misión pide datos de investigación urgentes. Enviarlos consume comunicaciones; ignorarlos baja la moral del equipo.",
+			"opcion_a": {
+				"texto": "Enviar los datos",
+				"gana": { "recurso": "investigacion", "cantidad": 20 },
+				"pierde": { "recurso": "mantenimiento:comunicaciones", "cantidad": 25 }
+			},
+			"opcion_b": {
+				"texto": "Ignorar el pedido",
+				"gana": { "recurso": "nada" },
+				"pierde": { "recurso": "descanso", "cantidad": 20 }
+			}
+		}
+	]
+}

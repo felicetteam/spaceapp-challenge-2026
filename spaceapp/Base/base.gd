@@ -57,6 +57,7 @@ var maquinas: Array[Maquina] = []
 var indice_activo: int = -1
 var navegacion: Navegacion
 var recursos: Recursos
+var eventos: Eventos
 var _luz: CanvasModulate
 
 # Cámara
@@ -97,6 +98,16 @@ func _ready() -> void:
 	hud.astronauta_clicado.connect(_seleccionar_personaje)
 	hud.maquina_clicada.connect(_mandar_a_trabajar)
 	hud.enfocar.connect(_enfocar)
+
+	eventos = Eventos.new()
+	eventos.name = "Eventos"
+	eventos.hud = hud
+	eventos.recursos = recursos
+	eventos.tripulacion = tripulacion
+	eventos.astronauta_retirado.connect(func(p: Personaje):
+		if p == _activo():
+			_deseleccionar())
+	add_child(eventos)
 	_mostrar_ajustes("Ajustes cargados")
 	for astro in tripulacion:
 		astro.controlado_por_jugador = false
@@ -282,6 +293,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			ventana.mode = Window.MODE_WINDOWED if ventana.mode == Window.MODE_FULLSCREEN \
 					else Window.MODE_FULLSCREEN
 			return
+		# F7: fuerza un evento crítico al azar (para probar el archivo de eventos)
+		if event.keycode == KEY_F7 and eventos != null:
+			eventos.cargar()
+			eventos.lanzar_aleatorio()
+			return
 		# F6: vuelve a aplicar Base/ajustes.gd sin reiniciar el juego
 		if event.keycode == KEY_F6:
 			Ajustes.recargar()
@@ -379,6 +395,8 @@ func _astronauta_en(punto: Vector2) -> Personaje:
 	var mejor: Personaje = null
 	var mejor_d := INF
 	for astro in tripulacion:
+		if not astro.visible:
+			continue  # fuera de la base por un evento
 		var r := Rect2(astro.global_position - Vector2(10, 18), Vector2(20, 36))
 		if r.has_point(punto):
 			var d := punto.distance_squared_to(astro.global_position)
@@ -414,6 +432,10 @@ func _seleccionar_indice(idx: int) -> void:
 		return
 	if idx == indice_activo:
 		_deseleccionar()
+		return
+	if tripulacion[idx].en_evento and tripulacion[idx].evento_fuera:
+		hud.agregar_alerta("%s está fuera de la base (%s)" % [tripulacion[idx].obtener_nombre(),
+				tripulacion[idx].motivo_evento], 0)
 		return
 	indice_activo = idx
 	_aplicar_seleccion()
