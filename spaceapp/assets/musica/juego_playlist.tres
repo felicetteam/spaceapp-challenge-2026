@@ -1,0 +1,14 @@
+[gd_resource type="AudioStreamPlaylist" format=3 uid="uid://dhwmdujg7yr7w"]
+
+[ext_resource type="AudioStream" uid="uid://c7576xlyehi5l" path="res://assets/musica/SPACE-by-Rexlambo.ogg" id="1_01nfp"]
+[ext_resource type="AudioStream" uid="uid://bnkoaxmqw3fps" path="res://assets/musica/DISCOVERY-by-Lesion-X.ogg" id="2_t36vm"]
+[ext_resource type="AudioStream" uid="uid://defpgiq6n832n" path="res://assets/musica/Adrift-by-Hayden-Folker.ogg" id="3_jvf5l"]
+[ext_resource type="AudioStream" uid="uid://jf410cexnfri" path="res://assets/musica/Spacewalk-by-Punch-Deck.ogg" id="4_eeafr"]
+
+[resource]
+shuffle = true
+stream_count = 4
+stream_0 = ExtResource("1_01nfp")
+stream_1 = ExtResource("2_t36vm")
+stream_2 = ExtResource("3_jvf5l")
+stream_3 = ExtResource("4_eeafr")

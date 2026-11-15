@@ -1,0 +1,12 @@
+[gd_resource type="AudioStreamPlaylist" format=3 uid="uid://d1qq8ra4fal11"]
+
+[ext_resource type="AudioStream" uid="uid://b5h6lhpd0dbvq" path="res://assets/musica/A-few-jumps-away-by-Arthur-Vyncke.ogg" id="1_ffqrj"]
+[ext_resource type="AudioStream" uid="uid://c5740f0ii6tyl" path="res://assets/musica/UNDER-THE-STARS-by-Rexlambo.ogg" id="2_4455u"]
+[ext_resource type="AudioStream" uid="uid://clyxm1d6mnmj7" path="res://assets/musica/The-ANO-Interval-by-Pipe-Choir-Records.ogg" id="2_vqoyj"]
+
+[resource]
+shuffle = true
+stream_count = 3
+stream_0 = ExtResource("2_4455u")
+stream_1 = ExtResource("2_vqoyj")
+stream_2 = ExtResource("1_ffqrj")
