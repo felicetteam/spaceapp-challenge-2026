@@ -65,6 +65,10 @@ var eventos: Eventos
 # Con preload (y no por su class_name) para no depender de que el editor ya haya registrado
 # la clase: si no, base.gd entero no compila y el juego arranca sin nada.
 const TutorialScript := preload("res://Base/tutorial.gd")
+## Diario de investigaciones de la partida (las misiones de exploración).
+const DiarioScript := preload("res://Base/diario.gd")
+const TripulacionElegida := preload("res://Personaje/tripulacion_elegida.gd")
+var diario: Node
 var tutorial: Node
 ## Para el tutorial: si el jugador ya usó la rueda del mouse y arrastró el mapa.
 var uso_rueda := false
@@ -107,6 +111,7 @@ func _ready() -> void:
 	for nodo in get_tree().get_nodes_in_group("astronautas"):
 		if nodo is Personaje:
 			tripulacion.append(nodo)
+	_aplicar_tripulacion_elegida()
 	for nodo in get_tree().get_nodes_in_group("maquinas"):
 		if nodo is Maquina:
 			maquinas.append(nodo)
@@ -123,8 +128,14 @@ func _ready() -> void:
 	hud.zoom_pedido.connect(_zoom_desde_barra)
 	hud.pausa_pedida.connect(func(pausar: bool): pausa_jugador = pausar)
 
+	diario = DiarioScript.new()
+	diario.name = "Diario"
+	add_child(diario)
+	hud.diario = diario
+
 	eventos = Eventos.new()
 	eventos.name = "Eventos"
+	eventos.diario = diario
 	eventos.hud = hud
 	eventos.recursos = recursos
 	eventos.tripulacion = tripulacion
@@ -155,6 +166,20 @@ func _ready() -> void:
 	tutorial.iniciar()
 	if escritorio and interfaz_escritorio:
 		escritorio.interfaz_solicitada.connect(interfaz_escritorio.abrir)
+
+## Los astronautas elegidos en la pantalla de selección reemplazan a los de la escena
+## (cada uno toma la cabeza, el nombre y las afinidades del elegido).
+func _aplicar_tripulacion_elegida() -> void:
+	var elegidos: Array[int] = TripulacionElegida.cabezas
+	if elegidos.is_empty():
+		return
+	for i in tripulacion.size():
+		tripulacion[i].name = "Astronauta_%d" % i  # (para que no choquen los nombres)
+	for i in mini(elegidos.size(), tripulacion.size()):
+		var p := tripulacion[i]
+		p.cabeza = elegidos[i] as Personaje.Cabeza
+		p.name = p.obtener_nombre()
+
 
 func _construir_navegacion() -> void:
 	navegacion = Navegacion.new()

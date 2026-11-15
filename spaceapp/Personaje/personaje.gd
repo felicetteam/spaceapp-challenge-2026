@@ -1135,7 +1135,9 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 		estado_alerta = "Fuera %d:%02d" % [t / 60, t % 60]
 		estado_actualizado.emit(self)
 		return
-	var factor_afin := afinidad("salud")
+	# El gasto de comida y energía queda multiplicado por el valor de la tabla (0.8 = gasta
+	# 20% menos), porque afinidad() ya devuelve la inversa
+	var factor_afin := 1.0 / maxf(afinidad("salud"), 0.01)
 
 	# 1. El oxígeno marca qué tan rápido baja la vida: con 100% es normal, con 0% va 5 veces más rápido
 	var mult_o2 := 1.0 + (100.0 - oxigeno) / 25.0
@@ -1282,8 +1284,10 @@ func comer(cantidad: float = 40.0, bonus_calidad: float = 0.0) -> void:
 	dano_ambiental = maxf(0.0, dano_ambiental - bonus_calidad)
 
 ## Multiplicador de Personaje/afinidades.gd: "salud", "trabajo" o "investigacion".
+## Multiplicador efectivo (más de 1 = mejor): la tabla de Personaje/afinidades.gd dice por
+## cuánto se divide (0.8 = trabaja 1/0.8 = 25% más rápido; 1.15 = 13% más lento).
 func afinidad(tipo: String) -> float:
-	return Afinidades.de(obtener_nombre(), tipo)
+	return 1.0 / maxf(Afinidades.de(obtener_nombre(), tipo), 0.01)
 
 func obtener_nombre() -> String:
 	return NOMBRES.get(cabeza, "Astronauta")

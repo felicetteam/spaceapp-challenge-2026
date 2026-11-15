@@ -3,10 +3,10 @@ extends RefCounted
 ## AFINIDADES DE LOS ASTRONAUTAS
 ## Editá los números de la tabla. 1.0 = normal. Se usan apenas arranca el juego.
 ##
-##   salud          Cuánta comida y energía gasta. Menos de 1 = aguanta más
-##                  (0.8 = gasta 20% menos); más de 1 = se desgasta más rápido (1.2 = 20% más).
-##   trabajo        Velocidad para trabajar y reparar máquinas (1.2 = 20% más rápido).
-##   investigacion  Velocidad para investigar en el escritorio (1.2 = 20% más rápido).
+##   Cada valor dice POR CUÁNTO SE DIVIDE: menos de 1 = mejor, más de 1 = peor.
+##   salud          Gasto de comida y energía (0.8 = gasta 20% menos; 1.15 = 15% más).
+##   trabajo        Velocidad para trabajar y reparar máquinas (0.8 = 25% más rápido).
+##   investigacion  Velocidad para investigar en el escritorio (0.8 = 25% más rápido).
 ##
 ## Las claves son los nombres que se ven en el juego (Personaje.NOMBRES). Si un astronauta
 ## no está en la tabla, o le falta un valor, usa 1.0.

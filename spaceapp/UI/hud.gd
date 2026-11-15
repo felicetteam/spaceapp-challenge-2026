@@ -58,6 +58,10 @@ var _boton_pausa: Button
 var _boton_play: Button
 var _lbl_velocidad: Label
 var _boton_exploracion: Button
+## Diario de la partida (lo asigna base.gd): lo muestra la ventana de Información.
+var diario: Node = null
+const VentanaInfo := preload("res://UI/ventana_info.gd")
+var _ventana_info: Control = null
 
 func _ready() -> void:
 	layer = maxi(layer, 2)  # por encima de la capa de globos y carteles (CapaSinLuz, capa 1)
@@ -312,9 +316,30 @@ func _crear_controles_velocidad() -> void:
 	_boton_play.tooltip_text = "Play"
 	_boton_play.pressed.connect(func(): pausa_pedida.emit(false))
 	fila.add_child(_boton_play)
+	var info := _boton_chico("Información")
+	info.add_theme_font_size_override("font_size", 11)
+	info.tooltip_text = "Base (máquinas y mecánicas) y Diario (investigaciones)"
+	info.pressed.connect(abrir_info)
+	fila.add_child(info)
 	_lbl_velocidad = _label("", 10)
 	_lbl_velocidad.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	fila.add_child(_lbl_velocidad)
+
+
+## Abre la ventana de Información (carpetas Base y Diario). No pausa el juego.
+func abrir_info() -> void:
+	if _ventana_info != null and is_instance_valid(_ventana_info):
+		return
+	_ventana_info = VentanaInfo.new()
+	_ventana_info.diario = diario
+	_ventana_info.z_index = 40  # sobre el HUD, debajo del tutorial
+	add_child(_ventana_info)
+
+
+func cerrar_info() -> void:
+	if _ventana_info != null and is_instance_valid(_ventana_info):
+		_ventana_info.queue_free()
+	_ventana_info = null
 
 
 func mostrar_velocidad(pausado: bool, acelerado: bool) -> void:
@@ -629,6 +654,7 @@ func quitar_banner(id: String) -> void:
 ## mientras tanto; al elegir se llama a `al_elegir` con "opcion_a" u "opcion_b".
 func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_elegir: Callable,
 		efectos_iniciales: String = "", bloqueadas: Array[String] = []) -> void:
+	cerrar_info()  # el evento tiene que verse
 	var fondo := ColorRect.new()
 	fondo.color = Color(0, 0, 0, 0.6)
 	fondo.mouse_filter = Control.MOUSE_FILTER_STOP  # bloquea los clics al mapa

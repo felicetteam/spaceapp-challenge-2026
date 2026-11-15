@@ -49,6 +49,9 @@ extends Node
 ## "salud_minima" de salud (60 por defecto) y energía para pagar "costo_energia" (40 por
 ## defecto). Sale con lo que dice "opcion_a" y vuelve cansado: pierde esa energía al volver.
 ## "opcion_b" no hace falta.
+## Las exploraciones siguen las misiones del diario (Base/diario.gd): cada una toma el título de
+## la misión que toca, y al volver se desbloquea esa investigación y enseguida queda pendiente
+## la siguiente. No salen del sorteo de eventos (solo la primera, si nunca salió ninguna).
 ##
 ## "gana" y "pierde" llevan { "recurso": ..., "cantidad": ... }, o una lista de varios de esos.
 ## Estructura: después de decidir, los astronautas de la opción (el elegido, el nombrado o,
@@ -114,6 +117,14 @@ var _reparaciones: Array[Dictionary] = []
 var _exploraciones: Array[Dictionary] = []
 ## Energía que pierde al volver el astronauta de la exploración en curso (se fija al elegirlo).
 var _cansancio_exploracion := 0.0
+## Misión del diario de la exploración que está saliendo (se guarda en el astronauta retirado).
+var _mision_exploracion := ""
+## El diario de la partida (lo asigna base.gd).
+var diario: Node = null
+## Evento de exploración del archivo (plantilla para cada misión) y si ya empezó la cadena.
+var _plantilla_exploracion: Dictionary = {}
+var _exploraciones_iniciadas := false
+var _rovers_volviendo := 0
 const SALUD_MINIMA_EXPLORACION := 60.0
 const COSTO_ENERGIA_EXPLORACION := 40.0
 ## Si los astronautas no llegan en este tiempo, la decisión se aplica igual.
@@ -153,6 +164,8 @@ func cargar() -> void:
 		if ev is Dictionary and ev.has("descripcion") and ev.get("opcion_a") is Dictionary \
 				and (ev.get("opcion_b") is Dictionary or bool(ev.get("exploracion", false))):
 			_eventos.append(ev)
+			if bool(ev.get("exploracion", false)) and _plantilla_exploracion.is_empty():
+				_plantilla_exploracion = ev
 		else:
 			push_warning("%s: el evento %d está incompleto (falta descripcion, opcion_a u opcion_b)" % [RUTA, i])
 	print("Eventos críticos cargados: %d" % _eventos.size())
@@ -167,7 +180,8 @@ func ocupado() -> bool:
 ## astronautas ocupados por él). Mientras tanto no corre el tiempo hasta el próximo.
 func en_curso() -> bool:
 	return _abierto or not _pendiente.is_empty() or not _trabajos.is_empty() \
-			or not _activos.is_empty() or not _retirados.is_empty() or not _reparaciones.is_empty()
+			or not _activos.is_empty() or not _retirados.is_empty() or not _reparaciones.is_empty() \
+			or _rovers_volviendo > 0
 
 
 func _process(delta: float) -> void:
@@ -214,14 +228,24 @@ func lanzar_aleatorio() -> void:
 			push_warning("Eventos: no hay ningún evento con id \"%s\" para salir primero" % id)
 	if _bolsa.is_empty():
 		for i in _eventos.size():
+			# Las exploraciones salen encadenadas (una al volver de la anterior), no por sorteo
+			if bool(_eventos[i].get("exploracion", false)) and _exploraciones_iniciadas:
+				continue
 			for _r in maxi(1, int(_eventos[i].get("peso", 1))):
 				_bolsa.append(i)
 		_bolsa.shuffle()
+	if _bolsa.is_empty() and primero < 0:
+		return
 	if primero >= 0:
 		_bolsa.erase(primero)  # ya salió en esta vuelta: no se repite enseguida
 		lanzar(_eventos[primero])
 		return
-	lanzar(_eventos[_bolsa.pop_back()])
+	while not _bolsa.is_empty():
+		var ev: Dictionary = _eventos[_bolsa.pop_back()]
+		if bool(ev.get("exploracion", false)) and _exploraciones_iniciadas:
+			continue  # (quedó en la bolsa de antes de empezar la cadena de exploraciones)
+		lanzar(ev)
+		return
 
 
 ## Pausa el juego y muestra el evento. Si ya hay uno abierto, queda en cola.
@@ -273,13 +297,48 @@ func lanzar(ev: Dictionary) -> void:
 
 # --- Exploraciones pendientes -----------------------------------------------------
 
-## La exploración no interrumpe: queda en el botón de exploraciones pendientes.
+## La exploración no interrumpe: queda en el botón de exploraciones pendientes. Toma la próxima
+## misión del diario (su título); si ya no quedan misiones, no sale.
 func _agregar_exploracion(ev: Dictionary) -> void:
+	if not _exploraciones.is_empty() or _alguien_explorando():
+		return  # de a una: la próxima sale cuando vuelve la anterior
+	_exploraciones_iniciadas = true
+	if diario != null:
+		var total: int = diario.misiones.size()
+		var m: Dictionary = diario.tomar_mision()
+		if m.is_empty():
+			return
+		var n: int = diario.misiones.find(m) + 1
+		ev = ev.duplicate(true)
+		ev["mision"] = String(m["id"])
+		ev["titulo"] = String(m["titulo"])
+		ev["descripcion"] = "Misión %d de %d. %s" % [n, total, String(ev.get("descripcion", ""))]
 	_exploraciones.append(ev)
 	hud.mostrar_exploraciones_pendientes(_exploraciones.size())
 	hud.agregar_alerta("%s: tocá el botón de abajo a la derecha para elegir quién sale" \
 			% String(ev.get("titulo", "Nueva exploración")), 1, _rover())
 	evento_iniciado.emit(ev)  # (el tutorial la explica la primera vez)
+
+
+func _alguien_explorando() -> bool:
+	if _rovers_volviendo > 0:
+		return true
+	for r in _retirados:
+		if r.has("mision"):
+			return true
+	return false
+
+
+## Volvió de explorar: se desbloquea la investigación de esa misión y sale la siguiente.
+func _exploracion_terminada(mision: String) -> void:
+	if diario == null or mision == "":
+		return
+	var m: Dictionary = diario.desbloquear(mision)
+	recursos.investigaciones_desbloqueadas = diario.cantidad_desbloqueadas()
+	if not m.is_empty():
+		hud.agregar_alerta("Nueva investigación en el diario: %s" % String(m["titulo"]), 0)
+	if not _plantilla_exploracion.is_empty():
+		_agregar_exploracion(_plantilla_exploracion)
 
 
 func _rover() -> Rover:
@@ -348,6 +407,7 @@ func _salir_a_explorar(ev: Dictionary, p: Personaje) -> void:
 	_ev_actual = ev
 	_elegido = p
 	_cansancio_exploracion = float(ev.get("costo_energia", COSTO_ENERGIA_EXPLORACION))
+	_mision_exploracion = String(ev.get("mision", ""))
 	_resolver(ev, "opcion_a")
 
 
@@ -610,6 +670,7 @@ func _aplicar_opcion(ev: Dictionary, clave: String, cerrar := true) -> void:
 	_elegido = null
 	_fijados.clear()
 	_cansancio_exploracion = 0.0
+	_mision_exploracion = ""
 	if cerrar:
 		get_tree().paused = false
 		_abierto = false
@@ -862,10 +923,12 @@ func _aplicar(efecto: Dictionary, signo: int) -> String:
 				if m.tiene_desgaste and _maquina_coincide(m, detalle):
 					m.mantenimiento = clampf(m.mantenimiento + cantidad, 0.0, 100.0)
 		"investigacion":
-			for e in get_tree().get_nodes_in_group("maquinas"):
-				if e is Escritorio:
-					e.progreso_investigacion = maxf(0.0, e.progreso_investigacion + cantidad)
-					break
+			# Suma (o resta) progreso a la investigación activa del diario
+			if diario != null and cantidad > 0.0:
+				diario.avanzar(cantidad)
+			elif diario != null and diario.hay_activa():
+				var act: Dictionary = diario.activa()
+				act["progreso"] = maxf(0.0, float(act["progreso"]) + cantidad)
 		"desbloqueo":
 			if signo > 0:
 				recursos.investigaciones_desbloqueadas += maxi(1, int(efecto.get("cantidad", 1)))
@@ -903,6 +966,9 @@ func _aplicar_astronauta(nombre: String, efecto: Dictionary, signo: int) -> Stri
 	if fuera and _cansancio_exploracion > 0.0:
 		entrada["cansancio"] = _cansancio_exploracion  # vuelve cansado de explorar
 		_cansancio_exploracion = 0.0
+	if fuera and _mision_exploracion != "":
+		entrada["mision"] = _mision_exploracion
+		_mision_exploracion = ""
 	_retirados.append(entrada)
 	astronauta_retirado.emit(p)
 	var d := int(dur)
@@ -958,14 +1024,20 @@ func _actualizar_retirados(delta: float) -> void:
 			if rover != null and is_instance_valid(rover):
 				# Primero vuelve el rover manejando; al llegar, el astronauta se baja
 				var cansancio := float(r.get("cansancio", 0.0))
+				var mision := String(r.get("mision", ""))
+				# Mientras el rover vuelve, sigue contando como exploración en curso
+				_rovers_volviendo += 1
 				rover.volver(func():
+					_rovers_volviendo -= 1
 					p.terminar_evento(rover.punto_de_bajada())
 					_cansar(p, cansancio)
 					hud.agregar_alerta("%s volvió de explorar con el rover%s" % [p.obtener_nombre(),
-							" (cansado)" if cansancio > 0.0 else ""], 0, p))
+							" (cansado)" if cansancio > 0.0 else ""], 0, p)
+					_exploracion_terminada(mision))
 				continue
 			p.terminar_evento()
 			_cansar(p, float(r.get("cansancio", 0.0)))
+			_exploracion_terminada(String(r.get("mision", "")))
 			hud.agregar_alerta("%s volvió y está disponible" % p.obtener_nombre(), 0, p)
 
 

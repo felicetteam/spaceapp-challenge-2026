@@ -1,7 +1,8 @@
 extends Control
-## Menú de inicio (escena principal del juego): Jugar abre la base, Salir cierra el juego.
+## Menú de inicio (escena principal del juego): Jugar abre la selección de tripulación,
+## Salir cierra el juego.
 
-const ESCENA_JUEGO := "res://Base/base.tscn"
+const ESCENA_SELECCION := "res://Pantallas/Seleccion/MenuSeleccion.tscn"
 
 @onready var boton_jugar: Button = $CenterContainer/VBoxContainer/BotonJugar
 @onready var boton_diario: Button = $CenterContainer/VBoxContainer/BotonDiario
@@ -18,7 +19,7 @@ func _ready() -> void:
 
 
 func _on_jugar_pressed() -> void:
-	get_tree().change_scene_to_file(ESCENA_JUEGO)
+	get_tree().change_scene_to_file(ESCENA_SELECCION)
 
 
 func _on_salir_pressed() -> void:

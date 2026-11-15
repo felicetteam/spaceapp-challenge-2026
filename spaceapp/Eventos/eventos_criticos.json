@@ -146,14 +146,13 @@
 			"exploracion": true,
 			"salud_minima": 60,
 			"costo_energia": 40,
-			"descripcion": "¡Apareció un lugar nuevo para investigar! Un astronauta tiene que salir con el rover. Cada exploración desbloquea una investigación nueva para el escritorio.",
+			"descripcion": "¡Hay un lugar nuevo para investigar! Un astronauta tiene que salir con el rover. Al volver, la investigación de esta misión aparece en el diario.",
 			"consejo": "Elegí un astronauta con buena salud y energía: explorar cansa. Revisá el rover antes de salir. Las exploraciones se hacen de a una.",
 			"estructura": "rover",
 			"opcion_a": {
 				"texto": "Salir a explorar",
 				"gana": {
-					"recurso": "desbloqueo",
-					"cantidad": 1
+					"recurso": "nada"
 				},
 				"pierde": [
 					{

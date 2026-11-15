@@ -1,139 +1,25 @@
 [gd_scene format=3 uid="uid://daam7ckgigvbh"]
 
 [ext_resource type="Texture2D" uid="uid://dtv25latdax20" path="res://assets/img/Fondopng.png" id="1_5fok4"]
-[ext_resource type="Texture2D" uid="uid://dhiuknga2v1g0" path="res://assets/img/FondoCroto.png" id="1_cr340"]
-[ext_resource type="FontFile" uid="uid://v2k5y4ohdsyv" path="res://assets/fonts/Klaxon-Crunchy.otf" id="2_5fok4"]
-[ext_resource type="FontFile" uid="uid://cutlb65ivra8j" path="res://assets/fonts/squares.ttf" id="3_hkqsw"]
+[ext_resource type="Script" path="res://Pantallas/Seleccion/menu_seleccion.gd" id="2_sel"]
 
-[node name="MenuSeleccion" type="Node2D" unique_id=1148999785]
-
-[node name="Menu" type="Control" parent="." unique_id=335495211]
+[node name="MenuSeleccion" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 1152.0
-offset_bottom = 648.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("2_sel")
 
-[node name="Fondo" type="TextureRect" parent="Menu" unique_id=243222542]
-layout_mode = 0
-offset_right = 1152.0
-offset_bottom = 648.0
-texture = ExtResource("1_cr340")
+[node name="Fondo" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 texture = ExtResource("1_5fok4")
 expand_mode = 1
 stretch_mode = 6
-
-[node name="CenterContainer" type="CenterContainer" parent="Menu" unique_id=604002949]
-layout_mode = 0
-offset_right = 1152.0
-offset_bottom = 648.0
-
-[node name="VBoxContainer" type="VBoxContainer" parent="Menu/CenterContainer" unique_id=1163582335]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Titulo" type="Label" parent="Menu/CenterContainer/VBoxContainer" unique_id=455858713]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_5fok4")
-theme_override_font_sizes/font_size = 30
-text = "Elije tres personajes para jugar"
-horizontal_alignment = 1
-
-[node name="Espaciador2" type="Control" parent="Menu/CenterContainer/VBoxContainer" unique_id=310685126]
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-
-[node name="ContenedorDosColumnas" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer" unique_id=1450646063]
-layout_mode = 2
-
-[node name="ContenedorDosLineas" type="VBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas" unique_id=1078519791]
-custom_minimum_size = Vector2(300, 160)
-layout_mode = 2
-
-[node name="Personaje" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas" unique_id=707192951]
-layout_mode = 2
-
-[node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas/Personaje" unique_id=1550821690]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("3_hkqsw")
-theme_override_font_sizes/font_size = 30
-text = "Juan"
-
-[node name="FotoPersonaje" type="TextureRect" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas/Personaje" unique_id=1938710942]
-custom_minimum_size = Vector2(0, 70)
-layout_mode = 2
-texture = ExtResource("1_cr340")
-expand_mode = 2
-
-[node name="Personaje2" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas" unique_id=1900609670]
-layout_mode = 2
-
-[node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas/Personaje2" unique_id=1544864803]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
-theme_override_fonts/font = ExtResource("3_hkqsw")
-theme_override_font_sizes/font_size = 30
-text = "Laika"
-
-[node name="FotoPersonaje" type="TextureRect" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas/Personaje2" unique_id=1877897229]
-custom_minimum_size = Vector2(0, 70)
-layout_mode = 2
-texture = ExtResource("1_cr340")
-expand_mode = 2
-
-[node name="ContenedorDosLineas2" type="VBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas" unique_id=1301200000]
-custom_minimum_size = Vector2(300, 160)
-layout_mode = 2
-
-[node name="Personaje" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2" unique_id=1985461835]
-layout_mode = 2
-
-[node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2/Personaje" unique_id=391519564]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("3_hkqsw")
-theme_override_font_sizes/font_size = 30
-text = "Feli"
-
-[node name="FotoPersonaje" type="TextureRect" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2/Personaje" unique_id=1472275205]
-custom_minimum_size = Vector2(0, 70)
-layout_mode = 2
-texture = ExtResource("1_cr340")
-expand_mode = 2
-
-[node name="Personaje2" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2" unique_id=1852685626]
-layout_mode = 2
-
-[node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2/Personaje2" unique_id=379006568]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
-theme_override_fonts/font = ExtResource("3_hkqsw")
-theme_override_font_sizes/font_size = 30
-text = "Andy"
-
-[node name="FotoPersonaje" type="TextureRect" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2/Personaje2" unique_id=1266350637]
-custom_minimum_size = Vector2(0, 70)
-layout_mode = 2
-texture = ExtResource("1_cr340")
-expand_mode = 2
-
-[node name="Espaciador" type="Control" parent="Menu/CenterContainer/VBoxContainer" unique_id=2065955155]
-custom_minimum_size = Vector2(0, 130)
-layout_mode = 2
-
-[node name="HBoxContainer" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer" unique_id=2142537153]
-layout_mode = 2
-
-[node name="PersonajeSelecto" type="VBoxContainer" parent="Menu/CenterContainer/VBoxContainer/HBoxContainer" unique_id=585547357]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="Menu/CenterContainer/VBoxContainer/HBoxContainer/PersonajeSelecto" unique_id=399942067]
-layout_mode = 2
