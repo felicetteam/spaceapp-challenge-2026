@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://cmghr31ad07kg" path="res://Maquinas/Rover/rover.tscn" id="10_2hat1"]
 [ext_resource type="PackedScene" uid="uid://jtfc8ogaq1vw" path="res://Maquinas/O2/maquina_o2.tscn" id="11_eeexo"]
 [ext_resource type="PackedScene" uid="uid://it1d8w5g58up" path="res://Maquinas/Invernadero/invernadero.tscn" id="12_at3lh"]
-[ext_resource type="PackedScene" path="res://Muebles/Comedor/comedor.tscn" id="13_jycdo"]
+[ext_resource type="PackedScene" uid="uid://l2bb5bbpqi0n" path="res://Muebles/Comedor/comedor.tscn" id="13_jycdo"]
 [ext_resource type="PackedScene" uid="uid://d0id16ststmi0" path="res://Maquinas/Escudo/escudo_radiacion.tscn" id="14_2shue"]
 [ext_resource type="PackedScene" uid="uid://b43o1kw1drj01" path="res://Robots/Roomba/roomba.tscn" id="15_t1rgp"]
 

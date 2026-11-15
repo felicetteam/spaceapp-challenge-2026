@@ -16,9 +16,9 @@ extends Resource
 
 @export_group("Recursos globales")
 ## Consumo de energía de la base, las máquinas, la cama de hospital y la roomba.
-@export var consumo_energia := 0.4
+@export var consumo_energia := 0.7
 ## Energía que generan los paneles solares.
-@export var generacion_energia := 1.3
+@export var generacion_energia := 1.0
 ## Velocidad con la que baja el oxígeno (cuando sigue a la energía o sin máquina de O2).
 @export var caida_oxigeno := 1.0
 ## Velocidad con la que sube la radiación.
@@ -29,11 +29,11 @@ extends Resource
 @export var desgaste_maquinas := 0.6
 ## Desgaste de cada tipo de máquina (se combina con desgaste_maquinas).
 @export var desgaste_fotovoltaica := 1.0
-@export var desgaste_comunicaciones := 1.0
+@export var desgaste_comunicaciones := 0.5
 @export var desgaste_o2 := 1.0
 @export var desgaste_invernadero := 0.5
 @export var desgaste_escudo := 0.3
-@export var desgaste_rover := 1.0
+@export var desgaste_rover := 0.3
 ## Cualquier otra máquina que no sea de los tipos de arriba.
 @export var desgaste_otras := 1.0
 ## Rango del mantenimiento con el que arranca cada máquina (al azar entre los dos).
@@ -63,7 +63,7 @@ extends Resource
 ## No cambia cuánta comida recupera: para eso está comida_por_turno.
 @export var velocidad_comer := 0.15
 ## Cuánta comida recupera en cada turno.
-@export var comida_por_turno := 2.5
+@export var comida_por_turno := 3
 ## Multiplica la espera entre comidas (1.0 = 5 minutos; 0.5 = cada 2 min 30 s).
 @export var intervalo_comida := 0.5
 
@@ -102,10 +102,10 @@ extends Resource
 
 @export_group("Astronautas")
 ## Velocidad con la que sube el hambre (baja la comida).
-@export var hambre := 1.0
+@export var hambre := 0.5
 ## Velocidad con la que sube el sueño (baja la energía del astronauta). 1.0 = balanceado con
 ## el sueño de la noche (ver Dormir).
-@export var sueno := 1.0
+@export var sueno := 0.9
 ## Descansado y Satisfecho a la vez = Feliz: trabaja en las máquinas esta cantidad de veces más rápido.
 @export var bonus_feliz := 1.1
 ## Daño directo a la salud (oxígeno muy bajo, radiación alta).

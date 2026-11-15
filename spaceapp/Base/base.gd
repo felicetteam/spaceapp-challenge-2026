@@ -68,6 +68,14 @@ var tutorial: Node
 var uso_rueda := false
 var uso_arrastre := false
 var _luz: CanvasModulate
+## Velocidad del juego: pausa del jugador (botones abajo a la izquierda) y x3 cuando toda la
+## tripulación duerme de noche. Se aplica con Engine.time_scale (la cámara usa tiempo real).
+const VELOCIDAD_DORMIDOS := 3.0
+var pausa_jugador := false
+var acelerado := false
+var _ultimo_tick_us := 0
+## Debajo del invernadero: celdas con tile de suelo marciano que igual son interior.
+var _celdas_interiores := {}
 ## Tiles de suelo marciano (afuera de la base): Vector3i(fuente, x, y) del atlas -> true.
 var _tiles_exterior := {}
 
@@ -110,6 +118,8 @@ func _ready() -> void:
 	hud.astronauta_clicado.connect(_seleccionar_personaje)
 	hud.maquina_clicada.connect(_mandar_a_trabajar)
 	hud.enfocar.connect(_enfocar)
+	hud.zoom_pedido.connect(_zoom_desde_barra)
+	hud.pausa_pedida.connect(func(pausar: bool): pausa_jugador = pausar)
 
 	eventos = Eventos.new()
 	eventos.name = "Eventos"
@@ -135,6 +145,11 @@ func _ready() -> void:
 	# El tutorial arranca recién con la grilla de caminos lista: si pausa antes, la grilla se
 	# arma sin colisiones y los astronautas no encuentran el camino a las máquinas.
 	await _construir_navegacion()
+	# Que el mundo y el HUD ya estén dibujados con sus valores reales antes de la primera
+	# ventana del tutorial (si no, se ve un cuadro a medio cargar detrás)
+	for _i in 3:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
 	tutorial.iniciar()
 
 func _construir_navegacion() -> void:
@@ -182,13 +197,15 @@ func _agregar_cuerpos(nodo: Node, lista: Array[RID]) -> void:
 		_agregar_cuerpos(hijo, lista)
 
 ## Al maximizar o agrandar la ventana, el juego (mundo y HUD) se escala en proporción a
-## resolucion_base. Con "expand", si la ventana tiene otra proporción se ve un poco más de mapa
+## resolucion_base. Con "keep", si la ventana tiene otra proporción aparecen bordes negros
+## iguales a los dos lados (o arriba y abajo), en vez de mostrar más mapa de un solo lado.
+## (Antes: con "expand", si la ventana tenía otra proporción se veía un poco más de mapa
 ## en lugar de dejar barras negras.
 func _configurar_pantalla() -> void:
 	var ventana := get_window()
 	ventana.content_scale_size = resolucion_base
 	ventana.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
-	ventana.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
+	ventana.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP  # bordes negros y parejos
 
 ## Marca como "afuera" los tiles que son casi todos suelo naranja (Marte) o amarillo. Se calcula mirando
 ## los colores de la textura del tileset, así sigue andando si cambian el tileset.
@@ -224,6 +241,60 @@ func _detectar_tiles_exterior() -> void:
 						naranjas += 1
 			if total > 0 and float(naranjas) / total >= 0.5:
 				_tiles_exterior[Vector3i(id, coords.x, coords.y)] = true
+	_detectar_interior_invernadero()
+
+
+func _es_tile_exterior(celda: Vector2i) -> bool:
+	var id := tilemap.get_cell_source_id(celda)
+	if id == -1:
+		return false
+	var a := tilemap.get_cell_atlas_coords(celda)
+	return _tiles_exterior.has(Vector3i(id, a.x, a.y))
+
+
+## El piso del invernadero usa tiles de tierra (naranja), pero está adentro de la base.
+## Desde las celdas debajo del invernadero se recorren las celdas de tierra conectadas: si esa
+## zona está cerrada por paredes, toda es interior. Si se escapa hacia el borde del mapa (está
+## abierta al exterior), solo cuentan las celdas debajo del invernadero y una más alrededor.
+func _detectar_interior_invernadero() -> void:
+	_celdas_interiores.clear()
+	var usado := tilemap.get_used_rect()
+	for m in maquinas:
+		if not (m is Invernadero):
+			continue
+		var r: Rect2 = m.rect_global()
+		var desde := tilemap.local_to_map(tilemap.to_local(r.position))
+		var hasta := tilemap.local_to_map(tilemap.to_local(r.end))
+		var debajo: Array[Vector2i] = []      # celdas bajo el invernadero (semillas)
+		var alrededor: Array[Vector2i] = []   # y una más alrededor (por si la zona está abierta)
+		for y in range(desde.y - 1, hasta.y + 2):
+			for x in range(desde.x - 1, hasta.x + 2):
+				alrededor.append(Vector2i(x, y))
+				if y >= desde.y and y <= hasta.y and x >= desde.x and x <= hasta.x:
+					debajo.append(Vector2i(x, y))
+		var zona := {}
+		var pendientes: Array[Vector2i] = []
+		for c in debajo:
+			if _es_tile_exterior(c) and not zona.has(c):
+				zona[c] = true
+				pendientes.append(c)
+		var cerrada := true
+		while not pendientes.is_empty():
+			var c: Vector2i = pendientes.pop_back()
+			if c.x <= usado.position.x or c.y <= usado.position.y \
+					or c.x >= usado.end.x - 1 or c.y >= usado.end.y - 1 or zona.size() > 600:
+				cerrada = false
+				break
+			for v in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var n: Vector2i = c + v
+				if not zona.has(n) and _es_tile_exterior(n):
+					zona[n] = true
+					pendientes.append(n)
+		if cerrada:
+			_celdas_interiores.merge(zona)
+		else:
+			for c in alrededor:
+				_celdas_interiores[c] = true
 
 
 ## true si en esa posición del mapa hay suelo marciano (afuera de la base).
@@ -233,11 +304,9 @@ func es_exterior(pos: Vector2) -> bool:
 		if m is Invernadero and m.rect_global().grow(4.0).has_point(pos):
 			return false
 	var celda := tilemap.local_to_map(tilemap.to_local(pos))
-	var id := tilemap.get_cell_source_id(celda)
-	if id == -1:
+	if _celdas_interiores.has(celda):
 		return false
-	var a := tilemap.get_cell_atlas_coords(celda)
-	return _tiles_exterior.has(Vector3i(id, a.x, a.y))
+	return _es_tile_exterior(celda)
 
 
 func _configurar_camara() -> void:
@@ -258,7 +327,12 @@ func _configurar_camara() -> void:
 	camara.reset_smoothing()
 
 func _process(delta: float) -> void:
-	_actualizar_camara(delta)
+	# La cámara anda en tiempo real: igual con el juego en pausa o acelerado
+	var ahora := Time.get_ticks_usec()
+	var delta_real := clampf((ahora - _ultimo_tick_us) / 1000000.0, 0.0, 0.1) if _ultimo_tick_us > 0 else delta
+	_ultimo_tick_us = ahora
+	_actualizar_camara(delta_real)
+	_actualizar_velocidad()
 	var lluvia := eventos != null and eventos.lluvia_activa()
 	for astro in tripulacion:
 		# Explorando (en el rover o fuera del mapa) siempre está afuera: con casco
@@ -267,6 +341,46 @@ func _process(delta: float) -> void:
 		astro.actualizar_salud(delta, recursos.oxigeno, recursos.radiacion, lluvia)
 	if _luz != null:
 		_luz.color = color_noche.lerp(Color.WHITE, recursos.luz())
+	if hud.has_method("mostrar_zoom"):
+		var z_min := _zoom_global()
+		var z_max := maxf(zoom_maximo, z_min)
+		hud.mostrar_zoom(0.0 if z_max <= z_min else log(_zoom_objetivo / z_min) / log(z_max / z_min))
+
+
+## De noche, con toda la tripulación durmiendo (los que están explorando fuera de la base no
+## cuentan, pero tiene que haber al menos uno durmiendo), el tiempo pasa al triple hasta que
+## alguien se despierta o amanece. La pausa del jugador tiene prioridad.
+func _actualizar_velocidad() -> void:
+	acelerado = false
+	if recursos != null and not recursos.es_de_dia() and not tripulacion.is_empty():
+		var durmiendo := 0
+		acelerado = true
+		for p in tripulacion:
+			if not is_instance_valid(p):
+				continue
+			if p.en_cama and p.durmiendo:
+				durmiendo += 1
+			elif not (p.en_evento and p.evento_fuera):
+				acelerado = false
+				break
+		acelerado = acelerado and durmiendo > 0
+	Engine.time_scale = 0.0 if pausa_jugador else (VELOCIDAD_DORMIDOS if acelerado else 1.0)
+	hud.mostrar_velocidad(pausa_jugador, acelerado)
+
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0  # al volver al menú, el tiempo corre normal
+
+
+## Barra de zoom (para quien no tiene rueda): t 0 = todo el mapa, 1 = lo más cerca posible.
+func _zoom_desde_barra(t: float) -> void:
+	uso_rueda = true
+	var z_min := _zoom_global()
+	var z_max := maxf(zoom_maximo, z_min)
+	_zoom_objetivo = z_min * pow(z_max / z_min, clampf(t, 0.0, 1.0))
+	_ancla_zoom = Vector2.INF
+	if t > 0.0 and _activo() != null and not _siguiendo:
+		_siguiendo = true
 
 # --- Cámara ------------------------------------------------------------------
 
@@ -287,7 +401,8 @@ func _actualizar_camara(delta: float) -> void:
 
 	var mapa := _rect_mapa()
 	_pos_libre = _pos_libre.clamp(mapa.position, mapa.end)
-	camara.position_smoothing_enabled = not _arrastrando
+	# (con la pausa del jugador el suavizado de la cámara no avanza: se mueve directo)
+	camara.position_smoothing_enabled = not _arrastrando and not pausa_jugador
 
 	var activo := _activo()
 	if not _hay_seguimiento():

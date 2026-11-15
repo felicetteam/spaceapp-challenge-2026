@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d0id16ststmi0"]
 
 [ext_resource type="Script" uid="uid://y07w5v1qnvvh" path="res://Maquinas/Escudo/escudo_radiacion.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://uqg5mijiyc6v" path="res://assets/sprites/blindaje.png" id="2_nd7j7"]
+[ext_resource type="Texture2D" uid="uid://cp3wvjcvwgkt5" path="res://assets/sprites/consola.png" id="2_nd7j7"]
 
 [node name="EscudoRadiacion" type="StaticBody2D" unique_id=1661404367]
 script = ExtResource("1_script")
