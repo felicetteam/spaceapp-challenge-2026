@@ -83,9 +83,6 @@ func _ready() -> void:
 		_crear_barra()
 	_crear_borde()
 	_actualizar_barra()
-	boton_jugar.pressed.connect(_on_jugar_pressed)
-	boton_diario.pressed.connect(_on_diario_pressed)
-	boton_salir.pressed.connect(_on_salir_pressed)
 
 
 func _process(delta: float) -> void:
@@ -345,16 +342,3 @@ func _actualizar_barra() -> void:
 	_barra.visible = recursos() != null and recursos().comunicaciones_activas
 	_barra.value = mantenimiento
 	_estilo_relleno.bg_color = color_estado()
-
-@onready var boton_jugar: Button = $CenterContainer/VBoxContainer/BotonJugar
-@onready var boton_diario: Button = $CenterContainer/VBoxContainer/BotonDiario
-@onready var boton_salir: Button = $CenterContainer/VBoxContainer/BotonSalir
-
-func _on_jugar_pressed() -> void:
-	get_tree().change_scene_to_file("res://escenas/juego.tscn") # ajusta la ruta a tu escena de juego
-
-func _on_diario_pressed() -> void:
-	get_tree().change_scene_to_file("res://escenas/diario.tscn") # ajusta o crea esta escena
-
-func _on_salir_pressed() -> void:
-	get_tree().quit()

@@ -407,10 +407,12 @@ func enfocar_inmediato(objetivo: Node2D) -> void:
 
 ## Muestra en la salida de Godot (y como aviso en el juego) qué multiplicadores están activos,
 ## para confirmar qué valores de Base/ajustes.gd está usando.
-func _mostrar_ajustes(titulo: String) -> void:
+## Al iniciar solo va a la salida de Godot; con en_pantalla (F6) también aparece en el juego.
+func _mostrar_ajustes(titulo: String, en_pantalla := false) -> void:
 	var resumen := Ajustes.actual().resumen()
 	print("%s (Base/ajustes.gd): %s" % [titulo, resumen])
-	hud.agregar_alerta("%s: %s" % [titulo, resumen], 0)
+	if en_pantalla:
+		hud.agregar_alerta("%s: %s" % [titulo, resumen], 0)
 
 ## Deja de seguir y fija la cámara donde está mirando ahora.
 func _soltar_camara() -> void:
@@ -437,7 +439,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		# F6: vuelve a aplicar Base/ajustes.gd sin reiniciar el juego
 		if event.keycode == KEY_F6:
 			Ajustes.recargar()
-			_mostrar_ajustes("Ajustes recargados")
+			_mostrar_ajustes("Ajustes recargados", true)
 			return
 		if event.keycode == KEY_ESCAPE:
 			_deseleccionar()

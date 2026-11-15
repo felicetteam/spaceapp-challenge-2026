@@ -25,6 +25,10 @@ signal personaje_levantado(personaje: Personaje)
 @export var solo_cabeza := true
 ## Dónde va la cabeza (sobre la almohada), respecto del centro de la cama.
 @export var posicion_cabeza := Vector2.ZERO
+## Giro de la cabeza acostada, en grados (negativo = antihorario).
+@export var rotacion_cabeza_grados := 0.0
+## Invierte la cabeza en el eje Y mientras está acostado.
+@export var voltear_cabeza_v := false
 
 @export_group("Uso")
 ## Solo acepta astronautas inconscientes (salud 0). Para la cama de hospital.
@@ -103,9 +107,15 @@ func acostar(p: Personaje) -> void:
 	p.en_cama = true
 	p.quiere_acostarse = false
 	if solo_cabeza:
-		p.rotation = 0.0
+		var giro := deg_to_rad(rotacion_cabeza_grados)
+		p.rotation = giro
 		p.set_solo_cabeza(true)
-		p.global_position = to_global(posicion_cabeza) - p.offset_cabeza()
+		p.sprite_cabeza.flip_v = voltear_cabeza_v
+		# La cabeza (no el origen del personaje) tiene que quedar sobre la almohada
+		var o := p.offset_cabeza()
+		if voltear_cabeza_v:
+			o.y = -o.y
+		p.global_position = to_global(posicion_cabeza) - o.rotated(giro)
 	else:
 		p.global_position = global_position + offset_personaje
 		p.rotation = deg_to_rad(rotacion_personaje_grados)
@@ -124,6 +134,7 @@ func levantar() -> void:
 	p.en_cama = false
 	p.durmiendo = false
 	p.set_solo_cabeza(false)
+	p.sprite_cabeza.flip_v = false
 	p.rotation = -PI / 2.0 if p.desmayado else 0.0
 	p.sprite_cabeza.z_index = _z_cabeza_original
 	sprite_sabana.visible = false
