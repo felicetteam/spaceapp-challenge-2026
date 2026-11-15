@@ -36,6 +36,7 @@ size = Vector2(16, 40)
 [node name="cama_hospital" type="StaticBody2D" unique_id=107914212]
 script = ExtResource("1_cama")
 solo_desmayados = true
+recupera_sueno = 2.0
 recupera_comida = 1.5
 consumo_energia_uso = 0.05
 
