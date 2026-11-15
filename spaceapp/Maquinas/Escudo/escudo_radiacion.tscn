@@ -8,4 +8,5 @@ script = ExtResource("1_script")
 nombre_maquina = "Escudo de radiación"
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=1248474060]
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("2_nd7j7")
