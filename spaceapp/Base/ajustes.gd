@@ -70,15 +70,6 @@ extends Resource
 ## Qué tan rápido recupera sueño y comida en la cama de hospital.
 @export var velocidad_hospital := 0.15
 
-@export_group("Eventos críticos")
-## Si es false, no aparecen eventos (con F7 se puede forzar uno igual, para probar).
-@export var eventos_activados := true
-## Segundos de juego hasta el primer evento.
-@export var primer_evento := 180.0
-## Segundos de juego entre un evento y el siguiente (al azar entre los dos).
-@export var intervalo_eventos_min := 300.0
-@export var intervalo_eventos_max := 600.0
-
 @export_group("Astronautas")
 ## Velocidad con la que sube el hambre (baja la comida).
 @export var hambre := 1.0

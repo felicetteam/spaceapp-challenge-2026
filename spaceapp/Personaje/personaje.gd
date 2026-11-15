@@ -119,12 +119,6 @@ var desmayado := false
 var siendo_llevado := false
 ## La roomba que viene a buscarlo.
 var reservado_por: Node = null
-## Fuera de servicio por un evento crítico (ver Eventos): fuera del mapa u ocupado en su lugar.
-var en_evento := false
-var evento_fuera := false
-var motivo_evento := ""
-## Segundos que le faltan para volver (lo actualiza Eventos).
-var tiempo_evento := 0.0
 ## Última vez que comió en el comedor (Time.get_ticks_msec()).
 var ultima_comida_ms := -1000000000
 ## Mueble que está usando con la orden USAR (por ejemplo, el comedor).
@@ -193,10 +187,6 @@ func _physics_process(delta: float) -> void:
 
 	# Inconsciente: no se mueve, no pasea y sus animaciones quedan en pausa
 	if desmayado or siendo_llevado:
-		velocity = Vector2.ZERO
-		return
-	# Ocupado por un evento: se queda en su lugar laburando, sin aceptar órdenes
-	if en_evento:
 		velocity = Vector2.ZERO
 		return
 
@@ -300,7 +290,7 @@ func _capas() -> Array[AnimatedSprite2D]:
 
 ## Cuenta el tiempo quieto en idle y, cuando se cumple, sale a pasear.
 func _contar_idle() -> void:
-	if not pasear_en_idle or en_cama or desmayado or siendo_llevado or en_evento:
+	if not pasear_en_idle or en_cama or desmayado or siendo_llevado:
 		return
 	_t_idle -= get_physics_process_delta_time()
 	if _t_idle <= 0.0:
@@ -415,43 +405,6 @@ func detener() -> void:
 func esta_trabajando() -> bool:
 	return orden == Orden.TRABAJAR
 
-# --- Eventos críticos --------------------------------------------------------
-
-## Lo saca de servicio por un evento. fuera = true: desaparece del mapa; false: se queda en su
-## lugar con la animación de laburo y no acepta órdenes.
-func iniciar_evento(fuera: bool, motivo: String, _segundos: float) -> void:
-	if en_cama:
-		for c in get_tree().get_nodes_in_group("camas"):
-			if c.ocupante == self:
-				c.levantar()
-	detener()
-	quiere_acostarse = false
-	en_evento = true
-	evento_fuera = fuera
-	motivo_evento = motivo
-	controlado_por_jugador = false
-	set_seleccionado(false)
-	if fuera:
-		visible = false
-		process_mode = Node.PROCESS_MODE_DISABLED  # también lo saca de la física
-	else:
-		set_laburando(true)
-		mostrar_cartel("Ocupado: %s" % motivo)
-
-func terminar_evento() -> void:
-	if not en_evento:
-		return
-	en_evento = false
-	if evento_fuera:
-		process_mode = Node.PROCESS_MODE_INHERIT
-		visible = true
-		# Reaparece en su punto de inicio
-		global_position += _punto_inicio - pies()
-	evento_fuera = false
-	motivo_evento = ""
-	_quedar_idle()
-	mostrar_cartel("De vuelta")
-
 ## true si está en una tarea: trabajando en una máquina o usando un mueble (comedor).
 func esta_en_tarea() -> bool:
 	return orden == Orden.TRABAJAR or orden == Orden.USAR
@@ -465,7 +418,7 @@ func camino_restante() -> PackedVector2Array:
 ## Si se lo puede correr para dejar pasar a otro.
 ## No se corre si está acostado o si el jugador lo maneja con el teclado sin una orden.
 func puede_ceder() -> bool:
-	if en_cama or desmayado or siendo_llevado or en_evento:
+	if en_cama or desmayado or siendo_llevado:
 		return false
 	return not (controlado_por_jugador and orden == Orden.NINGUNA)
 
@@ -498,9 +451,6 @@ func _soltar_maquina() -> void:
 func _no_responde() -> bool:
 	if desmayado or siendo_llevado:
 		mostrar_cartel("Inconsciente")
-		return true
-	if en_evento:
-		mostrar_cartel("Ocupado: %s" % motivo_evento)
 		return true
 	return false
 
@@ -852,12 +802,6 @@ func _crear_cartel_y_sonido() -> void:
 # Llamado desde base.gd en cada frame con las condiciones de la base
 # Llamado desde base.gd en cada frame con los recursos de la base
 func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_particulas: bool) -> void:
-	# Fuera de la base por un evento: sus valores quedan como estaban hasta que vuelva
-	if en_evento and evento_fuera:
-		var t := int(maxf(tiempo_evento, 0.0))
-		estado_alerta = "Fuera %d:%02d" % [t / 60, t % 60]
-		estado_actualizado.emit(self)
-		return
 	var factor_afin: float = FACTOR_SALUD.get(cabeza, 1.0)
 
 	# 1. El oxígeno marca qué tan rápido baja la vida: con 100% es normal, con 0% va 5 veces más rápido
@@ -928,9 +872,6 @@ func obtener_nombre() -> String:
 func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 	if desmayado:
 		estado_alerta = "Inconsciente"
-	elif en_evento:
-		var t := int(maxf(tiempo_evento, 0.0))
-		estado_alerta = "Ocupado %d:%02d" % [t / 60, t % 60]
 	elif lluvia and en_exterior:
 		estado_alerta = "¡Partículas!"
 	elif oxigeno < 20.0:

@@ -336,58 +336,6 @@ func agregar_alerta(texto: String, nivel: int = 1, objetivo: Node2D = null) -> v
 	tween.tween_property(panel, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(panel.queue_free)
 
-# --- Eventos críticos --------------------------------------------------------
-
-## Muestra un evento en el centro de la pantalla con sus dos opciones. El juego está en pausa
-## mientras tanto; al elegir se llama a `al_elegir` con "opcion_a" u "opcion_b".
-func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_elegir: Callable) -> void:
-	var fondo := ColorRect.new()
-	fondo.color = Color(0, 0, 0, 0.6)
-	fondo.mouse_filter = Control.MOUSE_FILTER_STOP  # bloquea los clics al mapa
-	fondo.process_mode = Node.PROCESS_MODE_ALWAYS   # funciona con el juego en pausa
-	fondo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(fondo)
-
-	var centro := CenterContainer.new()
-	centro.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	centro.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fondo.add_child(centro)
-
-	var estilo := _estilo_panel()
-	estilo.border_color = Color(0.9, 0.25, 0.25)
-	estilo.set_border_width_all(2)
-	estilo.content_margin_left = 16
-	estilo.content_margin_right = 16
-	estilo.content_margin_top = 12
-	estilo.content_margin_bottom = 12
-	var panel := _crear_panel(estilo, Vector2(420, 0))
-	centro.add_child(panel)
-
-	var vbox := _vbox(10)
-	panel.add_child(vbox)
-	var titulo := _label("EVENTO CRÍTICO · %s" % String(ev.get("titulo", "")).to_upper(), 14)
-	titulo.modulate = Color(1.0, 0.5, 0.45)
-	vbox.add_child(titulo)
-	var desc := _label(String(ev.get("descripcion", "")), 12)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.custom_minimum_size = Vector2(388, 0)
-	vbox.add_child(desc)
-
-	for clave in ["opcion_a", "opcion_b"]:
-		var opcion: Dictionary = ev.get(clave, {})
-		var efectos := efectos_a if clave == "opcion_a" else efectos_b
-		var boton := Button.new()
-		boton.focus_mode = Control.FOCUS_NONE
-		boton.text = String(opcion.get("texto", clave)) + ("\n" + efectos if efectos != "" else "")
-		boton.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		boton.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		boton.custom_minimum_size = Vector2(388, 44)
-		boton.add_theme_font_size_override("font_size", 11)
-		boton.pressed.connect(func():
-			fondo.queue_free()
-			al_elegir.call(clave))
-		vbox.add_child(boton)
-
 # --- Máquinas con problemas --------------------------------------------------
 
 ## Las máquinas que necesitan atención (con borde de estado), de la más urgente a la menos.
