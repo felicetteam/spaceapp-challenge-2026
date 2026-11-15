@@ -1,13 +1,11 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://it1d8w5g58up"]
 
-[ext_resource type="Script" path="res://Maquinas/Invernadero/invernadero.gd" id="1_script"]
-[ext_resource type="Texture2D" uid="uid://d0trmwd2m0vao" path="res://icon.svg" id="2_icon"]
+[ext_resource type="Script" uid="uid://32eqhfvig6ob" path="res://Maquinas/Invernadero/invernadero.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://buq4b81ce671f" path="res://assets/sprites/una_papa.png" id="2_6rdee"]
 
-[node name="Invernadero" type="StaticBody2D"]
+[node name="Invernadero" type="StaticBody2D" unique_id=1778257145]
 script = ExtResource("1_script")
 nombre_maquina = "Invernadero"
 
-[node name="Sprite2D" type="Sprite2D" parent="."]
-self_modulate = Color(0.55, 1, 0.5, 1)
-scale = Vector2(0.375, 0.375)
-texture = ExtResource("2_icon")
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1644457338]
+texture = ExtResource("2_6rdee")
