@@ -51,6 +51,8 @@ extends Node2D
 @onready var hud: CanvasLayer = $HUD
 @onready var tilemap: TileMapLayer = $TileMapLayer
 @onready var camara: Camera2D = $Camera2D
+@onready var interfaz_escritorio: InterfazEscritorio = $CanvasLayer/InterfazEscritorio
+@onready var escritorio: Escritorio = $Escritorio
 
 var tripulacion: Array[Personaje] = []
 var maquinas: Array[Maquina] = []
@@ -151,6 +153,8 @@ func _ready() -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	tutorial.iniciar()
+	if escritorio and interfaz_escritorio:
+		escritorio.interfaz_solicitada.connect(interfaz_escritorio.abrir)
 
 func _construir_navegacion() -> void:
 	navegacion = Navegacion.new()
