@@ -18,7 +18,7 @@ func _init() -> void:
 
 func trabajar(delta: float) -> void:
 	if funcionando():
-		progreso_investigacion += progreso_por_segundo * delta
+		progreso_investigacion += progreso_por_segundo * delta * Ajustes.actual().trabajo_de(tipo_ajuste())
 		investigacion_avanzo.emit(self, progreso_investigacion)
 
 
@@ -26,3 +26,8 @@ func obtener_estado() -> String:
 	if not funcionando():
 		return "Sin energía"
 	return "Investigación: %d" % int(progreso_investigacion)
+
+
+## Clave de este tipo de máquina en Base/ajustes.gd (trabajo_escritorio).
+func tipo_ajuste() -> StringName:
+	return &"escritorio"

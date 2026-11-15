@@ -13,3 +13,8 @@ func puede_explorar() -> bool:
 func explorar() -> void:
 	if puede_explorar():
 		exploracion_solicitada.emit(self)
+
+
+## Clave de este tipo de máquina en ajustes_juego.tres (trabajo_rover).
+func tipo_ajuste() -> StringName:
+	return &"rover"

@@ -1,7 +1,7 @@
 class_name Recursos
 extends Node
 ## Recursos globales de la base y reloj marciano (un sol dura 24:39).
-## Los multiplicadores de velocidad están en res://ajustes_juego.tres (ver Ajustes).
+## Los multiplicadores de velocidad están en Base/ajustes.gd.
 ## base.gd lo crea como hijo. Cualquier nodo lo encuentra con Recursos.de(self).
 ##
 ## Energía: la suman los "generadores_energia" y la restan los "consumidores_energia"
@@ -14,7 +14,8 @@ extends Node
 ##   máquinas y, por encima de 80%, daña la salud de los astronautas.
 
 signal actualizado(recursos: Recursos)
-signal alerta(texto: String, nivel: int)  # nivel: 0 info, 1 aviso, 2 peligro
+## nivel: 0 info, 1 aviso, 2 peligro. objetivo: lo que causó la alerta (o null), para centrar la cámara.
+signal alerta(texto: String, nivel: int, objetivo: Node2D)
 signal amanecer
 signal anochecer
 
@@ -199,7 +200,7 @@ func _avanzar_reloj(delta: float) -> void:
 
 func _avisar(texto: String, nivel: int) -> void:
 	if comunicaciones_activas:
-		alerta.emit(texto, nivel)
+		alerta.emit(texto, nivel, null)
 
 
 ## Las alertas solo llegan con las comunicaciones funcionando. Cada condición avisa una vez
@@ -214,18 +215,18 @@ func _revisar_alertas() -> void:
 			continue
 		var id := str(m.get_instance_id())
 		_condicion("crit" + id, m.mantenimiento < 30.0 and m.mantenimiento > 0.0,
-				"%s: mantenimiento crítico" % m.nombre_maquina, 1)
-		_condicion("rota" + id, m.mantenimiento <= 0.0, "%s fuera de servicio" % m.nombre_maquina, 2)
+				"%s: mantenimiento crítico" % m.nombre_maquina, 1, m)
+		_condicion("rota" + id, m.mantenimiento <= 0.0, "%s fuera de servicio" % m.nombre_maquina, 2, m)
 	for a in get_tree().get_nodes_in_group("astronautas"):
 		_condicion("desm" + str(a.get_instance_id()), a.desmayado,
-				"%s está inconsciente" % a.obtener_nombre(), 2)
+				"%s está inconsciente" % a.obtener_nombre(), 2, a)
 
 
-func _condicion(clave: String, activa: bool, texto: String, nivel: int) -> void:
+func _condicion(clave: String, activa: bool, texto: String, nivel: int, objetivo: Node2D = null) -> void:
 	if not activa:
 		_alertas_disparadas.erase(clave)
 		return
 	if _alertas_disparadas.has(clave) or not comunicaciones_activas:
 		return
 	_alertas_disparadas[clave] = true
-	alerta.emit(texto, nivel)
+	alerta.emit(texto, nivel, objetivo)

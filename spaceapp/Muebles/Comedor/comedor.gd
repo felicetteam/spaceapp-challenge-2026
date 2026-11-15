@@ -45,11 +45,12 @@ func reservar_asiento(p: Personaje) -> Vector2:
 func empezar_uso(p: Personaje) -> void:
 	p.mirar(global_position.x - p.global_position.x)
 	if _puede_comer(p):
-		_comiendo[p] = duracion_comida
+		_comiendo[p] = duracion_comida / maxf(Ajustes.actual().velocidad_comer, 0.01)
+		p.set_laburando(true)  # come con la animación de laburo
 		p.mostrar_cartel("Comiendo...")
 	else:
 		# Todavía no le toca: se levanta y vuelve al idle
-		var falta := intervalo_comida - (Time.get_ticks_msec() - p.ultima_comida_ms) / 1000.0
+		var falta := _intervalo() - (Time.get_ticks_msec() - p.ultima_comida_ms) / 1000.0
 		p.terminar_tarea("Próxima comida en %d:%02d" % [int(falta) / 60, int(falta) % 60])
 
 
@@ -62,7 +63,7 @@ func proceso_uso(p: Personaje, delta: float) -> void:
 	_comiendo.erase(p)
 	var r := Recursos.de(self)
 	var efectividad := r.efectividad_comida() if r != null else 1.0
-	var cantidad := comida_por_turno * efectividad
+	var cantidad := comida_por_turno * efectividad * Ajustes.actual().comida_por_turno
 	p.comer(cantidad)
 	p.ultima_comida_ms = Time.get_ticks_msec()
 	# Comida recuperada: se levanta y vuelve al idle
@@ -96,4 +97,9 @@ func contiene_punto(punto: Vector2) -> bool:
 
 
 func _puede_comer(p: Personaje) -> bool:
-	return Time.get_ticks_msec() - p.ultima_comida_ms >= intervalo_comida * 1000.0
+	return Time.get_ticks_msec() - p.ultima_comida_ms >= _intervalo() * 1000.0
+
+
+## Segundos entre comidas, con el multiplicador de Base/ajustes.gd.
+func _intervalo() -> float:
+	return intervalo_comida * Ajustes.actual().intervalo_comida

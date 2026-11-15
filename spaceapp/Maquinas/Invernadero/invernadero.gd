@@ -14,3 +14,8 @@ func obtener_estado() -> String:
 	if funcionando():
 		return "%s · comida %d%%" % [estado, roundi(mantenimiento)]
 	return estado
+
+
+## Clave de este tipo de máquina en ajustes_juego.tres (trabajo_invernadero).
+func tipo_ajuste() -> StringName:
+	return &"invernadero"

@@ -73,8 +73,10 @@ func _process(delta: float) -> void:
 	var recuperando := consumo_energia_uso <= 0.0 or _hay_energia()
 	ocupante.durmiendo = recuperando
 	if recuperando:
-		ocupante.sueno = maxf(0.0, ocupante.sueno - recupera_sueno * delta)
-		ocupante.hambre = maxf(0.0, ocupante.hambre - recupera_comida * delta)
+		var aj := Ajustes.actual()
+		var mult := aj.velocidad_hospital if solo_desmayados else aj.velocidad_dormir
+		ocupante.sueno = maxf(0.0, ocupante.sueno - recupera_sueno * mult * delta)
+		ocupante.hambre = maxf(0.0, ocupante.hambre - recupera_comida * aj.velocidad_hospital * delta)
 	# Recuperado (y despierto): se levanta y vuelve al idle
 	var p := ocupante
 	if not p.desmayado and p.sueno <= 0.0 and (recupera_comida <= 0.0 or p.hambre <= 0.0):

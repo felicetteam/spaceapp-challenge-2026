@@ -5,6 +5,8 @@ extends CanvasLayer
 
 signal astronauta_clicado(personaje: Personaje)
 signal maquina_clicada(maquina: Maquina)
+## Pide centrar la cámara en algo (una máquina con problemas, el objeto de una alerta).
+signal enfocar(objetivo: Node2D)
 
 const ANCHO_TARJETA := 150
 
@@ -27,6 +29,9 @@ var _barras_recursos := {} # nombre -> {"barra", "estilo", "lbl"}
 var _aviso_comunicaciones: Label
 var _scroll_maquinas: ScrollContainer
 var _alertas: VBoxContainer
+var _maquinas: Array[Maquina] = []
+var _boton_atencion: Button
+var _idx_atencion := -1
 
 func _ready() -> void:
 	var columna := $Columna as VBoxContainer
@@ -49,7 +54,25 @@ func _ready() -> void:
 	columna.add_child(_panel_recursos)
 	columna.move_child(_panel_recursos, 0)
 
-	# La lista de máquinas va dentro de un scroll para que entre en pantalla
+	# Mantenimiento: en lugar de una lista larga, un contador de máquinas con problemas.
+	# Cada clic centra la cámara en la siguiente, de la más urgente a la menos.
+	# (Los bordes amarillo/rojo y las barras flotantes muestran el detalle en el mapa.)
+	_boton_atencion = Button.new()
+	_boton_atencion.focus_mode = Control.FOCUS_NONE  # que no se quede con las flechas del teclado
+	_boton_atencion.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_boton_atencion.custom_minimum_size = Vector2(ANCHO_TARJETA, 0)
+	_boton_atencion.add_theme_font_size_override("font_size", 10)
+	_boton_atencion.add_theme_stylebox_override("normal", _estilo_panel())
+	_boton_atencion.add_theme_stylebox_override("hover", _estilo_panel())
+	_boton_atencion.add_theme_stylebox_override("pressed", _estilo_panel())
+	_boton_atencion.add_theme_stylebox_override("disabled", _estilo_panel())
+	_boton_atencion.tooltip_text = "Clic: ir a la siguiente máquina con problemas"
+	_boton_atencion.pressed.connect(_ir_a_siguiente_maquina)
+	columna.add_child(_boton_atencion)
+	columna.move_child(_boton_atencion, titulo_mantenimiento.get_index())
+	titulo_mantenimiento.visible = false
+
+	# (La lista detallada de máquinas ya no se muestra)
 	_scroll_maquinas = ScrollContainer.new()
 	_scroll_maquinas.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll_maquinas.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -97,21 +120,16 @@ func inicializar(tripulacion: Array[Personaje], maquinas: Array[Maquina] = [], r
 		astro.estado_actualizado.connect(_on_estado_actualizado)
 		_on_estado_actualizado(astro)
 
-	for hijo in contenedor_maquinas.get_children():
-		hijo.queue_free()
-	_tarjetas_maquinas.clear()
+	_maquinas.clear()
 	for m in maquinas:
-		if not m.tiene_desgaste:
-			continue  # el escritorio y similares no van al panel de mantenimiento
-		contenedor_maquinas.add_child(_crear_tarjeta_maquina(m))
-		m.estado_actualizado.connect(_on_maquina_actualizada)
-		_on_maquina_actualizada(m)
+		if m.tiene_desgaste:  # el escritorio y similares no cuentan
+			_maquinas.append(m)
 
 func marcar_activo(activo: Personaje) -> void:
 	for astro in _tarjetas.keys():
 		var estilo: StyleBoxFlat = _tarjetas[astro]["estilo_panel"]
 		if astro == activo:
-			estilo.border_color = Color(0.3, 0.85, 1.0) # Borde celeste brillante
+			estilo.border_color = Color(0.25, 1.0, 0.35) # Verde, igual que el borde del personaje
 			estilo.set_border_width_all(2)
 		else:
 			estilo.border_color = Color(0.25, 0.28, 0.35)
@@ -270,8 +288,10 @@ func _on_recursos_actualizados(r: Recursos) -> void:
 	var visibles := r.comunicaciones_activas
 	_caja_barras.visible = visibles
 	_aviso_comunicaciones.visible = not visibles
-	titulo_mantenimiento.visible = visibles and not _tarjetas_maquinas.is_empty()
-	_scroll_maquinas.visible = visibles
+	titulo_mantenimiento.visible = false
+	_scroll_maquinas.visible = false
+	_boton_atencion.visible = visibles and not _maquinas.is_empty()
+	_actualizar_boton_atencion()
 	_alertas.visible = visibles
 	if not visibles:
 		return
@@ -284,13 +304,25 @@ func _on_recursos_actualizados(r: Recursos) -> void:
 	lbl_rad.modulate = Color(1.0, 0.4, 0.4) if r.radiacion > 80.0 else Color.WHITE
 
 ## Agrega un aviso arriba a la derecha que desaparece solo. nivel: 0 info, 1 aviso, 2 peligro.
-func agregar_alerta(texto: String, nivel: int = 1) -> void:
+## Si la alerta tiene un objetivo (una máquina, un astronauta), un clic en ella centra la cámara ahí.
+func agregar_alerta(texto: String, nivel: int = 1, objetivo: Node2D = null) -> void:
 	var estilo := _estilo_panel()
 	var colores := [Color(0.3, 0.6, 0.9), Color(0.95, 0.75, 0.15), Color(0.9, 0.25, 0.25)]
 	estilo.border_color = colores[clampi(nivel, 0, 2)]
 	estilo.set_border_width_all(2)
 	var panel := _crear_panel(estilo, Vector2(220, 0))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if objetivo != null:
+		texto += "  (ver)"
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		panel.tooltip_text = "Clic: centrar la cámara"
+		panel.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT \
+					and is_instance_valid(objetivo):
+				enfocar.emit(objetivo)
+				panel.accept_event()
+		)
 	var lbl := _label(texto, 10)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel.add_child(lbl)
@@ -303,6 +335,40 @@ func agregar_alerta(texto: String, nivel: int = 1) -> void:
 	tween.tween_interval(DURACION_ALERTA)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.6)
 	tween.tween_callback(panel.queue_free)
+
+# --- Máquinas con problemas --------------------------------------------------
+
+## Las máquinas que necesitan atención (con borde de estado), de la más urgente a la menos.
+func _maquinas_con_problemas() -> Array[Maquina]:
+	var lista: Array[Maquina] = []
+	for m in _maquinas:
+		if is_instance_valid(m) and m.mantenimiento < m.umbral_borde:
+			lista.append(m)
+	lista.sort_custom(func(a, b): return a.mantenimiento < b.mantenimiento)
+	return lista
+
+func _actualizar_boton_atencion() -> void:
+	var lista := _maquinas_con_problemas()
+	if lista.is_empty():
+		_boton_atencion.text = "Máquinas: todo en orden"
+		_boton_atencion.disabled = true
+		_boton_atencion.modulate = Color(0.6, 0.95, 0.65)
+		return
+	_boton_atencion.disabled = false
+	var peor := lista[0]
+	var n := lista.size()
+	_boton_atencion.text = "%d %s atención\nPeor: %s %d%% (clic para ver)" % [
+			n, "máquina necesita" if n == 1 else "máquinas necesitan",
+			peor.nombre_maquina, roundi(peor.mantenimiento)]
+	_boton_atencion.modulate = Color(1.0, 0.45, 0.4) if peor.mantenimiento <= peor.umbral_critico \
+			else Color(1.0, 0.85, 0.35)
+
+func _ir_a_siguiente_maquina() -> void:
+	var lista := _maquinas_con_problemas()
+	if lista.is_empty():
+		return
+	_idx_atencion = (_idx_atencion + 1) % lista.size()
+	enfocar.emit(lista[_idx_atencion])
 
 # --- Helpers de UI -----------------------------------------------------------
 

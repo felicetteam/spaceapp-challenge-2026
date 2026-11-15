@@ -128,6 +128,11 @@ var _usando := false
 ## Paseando solo, nunca se acuesta por accidente.
 var quiere_acostarse := false
 
+## Lo marca base.gd: muestra un borde verde alrededor del personaje.
+var seleccionado := false
+var _grupo_seleccion: CanvasGroup
+var _material_seleccion: ShaderMaterial
+
 # Paseo en idle
 var _punto_inicio := Vector2.ZERO
 var _t_idle := 0.0
@@ -171,13 +176,18 @@ func _ready() -> void:
 	_crear_cartel_y_sonido()
 	_actualizar_animaciones(true)
 
+func _process(_delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
+	_actualizar_borde_seleccion()
+
 func _physics_process(delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 
+	# Inconsciente: no se mueve, no pasea y sus animaciones quedan en pausa
 	if desmayado or siendo_llevado:
-		if velocity != Vector2.ZERO or corriendo or laburando:
-			_quedar_idle()
+		velocity = Vector2.ZERO
 		return
 
 	var dir := Vector2.ZERO
@@ -235,6 +245,46 @@ func _velocidad_actual() -> float:
 	if orden == Orden.PASEO and _desvio == Desvio.NINGUNO:
 		v *= velocidad_paseo
 	return v
+
+# --- Selección ---------------------------------------------------------------
+
+func set_seleccionado(valor: bool) -> void:
+	seleccionado = valor
+	_actualizar_borde_seleccion()
+
+## El borde verde se dibuja con un CanvasGroup que junta las cuatro capas del personaje, así el
+## contorno sigue la silueta completa. Solo existe mientras está seleccionado; en la cama no se
+## usa, para que la cabeza pueda seguir por encima de la sábana.
+func _actualizar_borde_seleccion() -> void:
+	var quiere := seleccionado and not en_cama
+	if quiere and _grupo_seleccion == null:
+		if _material_seleccion == null:
+			_material_seleccion = ShaderMaterial.new()
+			_material_seleccion.shader = preload("res://Base/shaders/contorno_seleccion.gdshader")
+		_grupo_seleccion = CanvasGroup.new()
+		_grupo_seleccion.name = "BordeSeleccion"
+		_grupo_seleccion.fit_margin = 6.0
+		_grupo_seleccion.material = _material_seleccion
+		add_child(_grupo_seleccion)
+		move_child(_grupo_seleccion, 0)
+		for s in _capas():
+			s.reparent(_grupo_seleccion, false)
+	elif not quiere and _grupo_seleccion != null:
+		var i := 0
+		for s in _capas():
+			s.reparent(self, false)
+			move_child(s, i)
+			i += 1
+		_grupo_seleccion.queue_free()
+		_grupo_seleccion = null
+	if _grupo_seleccion != null:
+		# Más o menos 1 píxel del mundo, sin importar el zoom ni el tamaño de la ventana
+		var escala := get_viewport().get_screen_transform().get_scale().x \
+				* get_global_transform_with_canvas().get_scale().x
+		_material_seleccion.set_shader_parameter("grosor", maxf(1.0, roundf(escala)))
+
+func _capas() -> Array[AnimatedSprite2D]:
+	return [sprite_cuerpo, sprite_brazo, sprite_casco, sprite_cabeza]
 
 # --- Paseo en idle -----------------------------------------------------------
 
@@ -354,6 +404,10 @@ func detener() -> void:
 
 func esta_trabajando() -> bool:
 	return orden == Orden.TRABAJAR
+
+## true si está en una tarea: trabajando en una máquina o usando un mueble (comedor).
+func esta_en_tarea() -> bool:
+	return orden == Orden.TRABAJAR or orden == Orden.USAR
 
 ## Lo que le queda por recorrer (vacío si está quieto).
 func camino_restante() -> PackedVector2Array:
@@ -756,7 +810,7 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 	# 2. Avance de hambre y sueño (las camas los recuperan mientras está acostado)
 	var aj := Ajustes.actual()
 	var gasto_base := 0.25 * factor_afin * delta * mult_o2
-	var extra_trabajo := 1.3 if laburando else 1.0
+	var extra_trabajo := 1.3 if laburando and orden == Orden.TRABAJAR else 1.0  # comer no da más hambre
 
 	if not durmiendo:
 		hambre = clampf(hambre + gasto_base * extra_trabajo * aj.hambre, 0.0, 100.0)
@@ -794,12 +848,16 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 func _desmayar() -> void:
 	detener()
 	desmayado = true
+	corriendo = false
+	laburando = false
+	_pausar_animaciones()
 	if not en_cama:
 		rotation = -PI / 2.0  # queda tirado en el piso
 	mostrar_cartel("¡Inconsciente!")
 
 func _despertar() -> void:
 	desmayado = false
+	_actualizar_animaciones(true)  # vuelve a animarse
 	if not en_cama and not siendo_llevado:
 		rotation = 0.0
 	mostrar_cartel("Se despertó")
@@ -878,6 +936,9 @@ func mirar(dir_x: float) -> void:
 		s.flip_h = dir_x < 0.0
 
 func _actualizar_animaciones(forzar := false) -> void:
+	if desmayado:
+		_pausar_animaciones()
+		return
 	var anim_cuerpo := &"correr_base" if corriendo else &"idle_base"
 	var anim_brazo: StringName
 	if laburando:
@@ -898,6 +959,12 @@ func _reproducir(sprite: AnimatedSprite2D, anim: StringName, referencia: Animate
 		sprite.set_frame_and_progress(referencia.frame, referencia.frame_progress)
 	else:
 		sprite.set_frame_and_progress(0, 0.0)
+
+## Congela el cuadro actual de todas las capas (por ejemplo, al quedar inconsciente).
+func _pausar_animaciones() -> void:
+	for s in [sprite_cuerpo, sprite_brazo, sprite_cabeza, sprite_casco]:
+		if s != null:
+			s.pause()
 
 func _aplicar_cabeza() -> void:
 	sprite_cabeza.stop()

@@ -6,3 +6,8 @@ extends Maquina
 
 func _funcion(_delta: float) -> void:
 	recursos().regular_oxigeno()
+
+
+## Clave de este tipo de máquina en ajustes_juego.tres (trabajo_o2).
+func tipo_ajuste() -> StringName:
+	return &"o2"

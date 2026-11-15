@@ -5,3 +5,8 @@ extends Maquina
 
 func _funcion(_delta: float) -> void:
 	recursos().reportar_comunicaciones()
+
+
+## Clave de este tipo de máquina en ajustes_juego.tres (trabajo_comunicaciones).
+func tipo_ajuste() -> StringName:
+	return &"comunicaciones"

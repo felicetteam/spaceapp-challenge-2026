@@ -29,3 +29,8 @@ func obtener_estado() -> String:
 	if estado == "Operativa" and recursos() != null:
 		return "Generando %d%%" % roundi(recursos().factor_solar() * 100.0) if recursos().es_de_dia() else "Noche"
 	return estado
+
+
+## Clave de este tipo de máquina en Base/ajustes.gd (trabajo_fotovoltaica).
+func tipo_ajuste() -> StringName:
+	return &"fotovoltaica"

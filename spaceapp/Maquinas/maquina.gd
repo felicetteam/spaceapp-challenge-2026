@@ -39,12 +39,21 @@ signal fuera_de_servicio(maquina: Maquina)
 @export var mostrar_barra := true
 @export var ancho_barra := 24.0
 
+@export_group("Borde de estado")
+## Debajo de este mantenimiento aparece un borde amarillo que pasa a rojo a medida que baja.
+@export var umbral_borde := 75.0
+## Con este mantenimiento (o menos) el borde ya es rojo y titila.
+@export var umbral_critico := 25.0
+## Grosor del borde en píxeles del mundo.
+@export var grosor_borde := 1.5
+
 var trabajadores: Array[Personaje] = []
 var _sprite: Node2D
 var _barra: ProgressBar
 var _estilo_relleno: StyleBoxFlat
 var _estaba_fuera := false
 var _recursos: Recursos
+var _material_borde: ShaderMaterial
 
 
 func _ready() -> void:
@@ -60,13 +69,14 @@ func _ready() -> void:
 	_sprite = _buscar_sprite(self)
 	if mostrar_barra and tiene_desgaste:
 		_crear_barra()
+	_crear_borde()
 	_actualizar_barra()
 
 
 func _process(delta: float) -> void:
 	if tiene_desgaste:
 		var mult := recursos().multiplicador_desgaste() if recursos() != null else 1.0
-		mult *= Ajustes.actual().desgaste_maquinas
+		mult *= Ajustes.actual().desgaste_de(tipo_ajuste())
 		mantenimiento = clampf(mantenimiento - desgaste_por_segundo * mult * delta, 0.0, 100.0)
 		var fuera := mantenimiento <= 0.0
 		if fuera and not _estaba_fuera:
@@ -79,6 +89,7 @@ func _process(delta: float) -> void:
 	if _sprite != null:
 		_sprite.modulate = Color.WHITE if activa else Color(0.55, 0.55, 0.62)
 	_actualizar_barra()
+	_actualizar_borde()
 	estado_actualizado.emit(self)
 
 
@@ -121,7 +132,14 @@ func trabajar(delta: float) -> void:
 
 func reparar(delta: float) -> void:
 	if tiene_desgaste:
-		mantenimiento = clampf(mantenimiento + reparacion_por_segundo * delta, 0.0, 100.0)
+		var mult := Ajustes.actual().trabajo_de(tipo_ajuste())
+		mantenimiento = clampf(mantenimiento + reparacion_por_segundo * mult * delta, 0.0, 100.0)
+
+
+## Clave de este tipo de máquina en Base/ajustes.gd (trabajo_<tipo>). Las subclases la
+## sobreescriben; las máquinas genéricas usan trabajo_otras.
+func tipo_ajuste() -> StringName:
+	return &"otras"
 
 
 func agregar_trabajador(p: Personaje) -> void:
@@ -204,6 +222,32 @@ func _crear_barra() -> void:
 	_estilo_relleno = StyleBoxFlat.new()
 	_barra.add_theme_stylebox_override("fill", _estilo_relleno)
 	add_child(_barra)
+
+
+func _crear_borde() -> void:
+	if not tiene_desgaste or not (_sprite is Sprite2D):
+		return
+	_material_borde = ShaderMaterial.new()
+	_material_borde.shader = preload("res://Base/shaders/contorno_maquina.gdshader")
+	var escala := absf(_sprite.global_scale.x)
+	_material_borde.set_shader_parameter("grosor", grosor_borde / maxf(escala, 0.01))
+	_sprite.material = _material_borde
+
+
+## Borde que aparece amarillo cuando la máquina empieza a desgastarse y pasa a rojo (titilando)
+## cuando está crítica. Como los desgastes, solo se ve con las comunicaciones funcionando.
+func _actualizar_borde() -> void:
+	if _material_borde == null:
+		return
+	var visible_borde := mantenimiento < umbral_borde and recursos() != null \
+			and recursos().comunicaciones_activas
+	_material_borde.set_shader_parameter("activo", visible_borde)
+	if not visible_borde:
+		return
+	var t := clampf(inverse_lerp(umbral_borde, umbral_critico, mantenimiento), 0.0, 1.0)
+	var color := Color(1.0, 0.85, 0.1).lerp(Color(0.95, 0.12, 0.08), t)
+	_material_borde.set_shader_parameter("color_borde", color)
+	_material_borde.set_shader_parameter("parpadeo", mantenimiento <= umbral_critico)
 
 
 func _actualizar_barra() -> void:
