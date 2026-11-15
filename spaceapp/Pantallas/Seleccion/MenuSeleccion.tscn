@@ -1,5 +1,6 @@
 [gd_scene format=3 uid="uid://daam7ckgigvbh"]
 
+[ext_resource type="Texture2D" uid="uid://dtv25latdax20" path="res://assets/img/Fondopng.png" id="1_5fok4"]
 [ext_resource type="Texture2D" uid="uid://dhiuknga2v1g0" path="res://assets/img/FondoCroto.png" id="1_cr340"]
 [ext_resource type="FontFile" uid="uid://v2k5y4ohdsyv" path="res://assets/fonts/Klaxon-Crunchy.otf" id="2_5fok4"]
 [ext_resource type="FontFile" uid="uid://cutlb65ivra8j" path="res://assets/fonts/squares.ttf" id="3_hkqsw"]
@@ -20,7 +21,7 @@ grow_vertical = 2
 layout_mode = 0
 offset_right = 1152.0
 offset_bottom = 648.0
-texture = ExtResource("1_cr340")
+texture = ExtResource("1_5fok4")
 expand_mode = 1
 stretch_mode = 6
 
@@ -35,11 +36,15 @@ theme_override_constants/separation = 10
 
 [node name="Titulo" type="Label" parent="Menu/CenterContainer/VBoxContainer" unique_id=455858713]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("2_5fok4")
 theme_override_font_sizes/font_size = 30
 text = "Elije tres personajes para jugar"
 horizontal_alignment = 1
+
+[node name="Espaciador2" type="Control" parent="Menu/CenterContainer/VBoxContainer" unique_id=310685126]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
 
 [node name="ContenedorDosColumnas" type="HBoxContainer" parent="Menu/CenterContainer/VBoxContainer" unique_id=1450646063]
 layout_mode = 2
@@ -53,7 +58,7 @@ layout_mode = 2
 
 [node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas/Personaje" unique_id=1550821690]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("3_hkqsw")
 theme_override_font_sizes/font_size = 30
 text = "Juan"
@@ -89,7 +94,7 @@ layout_mode = 2
 
 [node name="NombrePersonaje" type="Label" parent="Menu/CenterContainer/VBoxContainer/ContenedorDosColumnas/ContenedorDosLineas2/Personaje" unique_id=391519564]
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0, 1, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_fonts/font = ExtResource("3_hkqsw")
 theme_override_font_sizes/font_size = 30
 text = "Feli"
