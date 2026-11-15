@@ -35,13 +35,13 @@ const TEXTOS_MAQUINAS := {
 	"fotovoltaica": ["Paneles solares",
 		"Juntan la luz del Sol y la convierten en energía. Rinden mucho a la mañana, menos a la tarde y nada de noche. Si se gastan, generan menos: ¡mantenelos sanos para tener energía para la noche!"],
 	"comunicaciones": ["Comunicaciones",
-		"La antena que conecta la base con la Tierra. Mientras funciona, ves los recursos, los desgastes y las alertas. Si se rompe, aparece un ! rojo encima y te quedás a ciegas: arreglala primero."],
+		"La antena conecta la base con la Tierra. Mientras funciona, ves los recursos, los desgastes y las alertas. Si se rompe, aparece un ! rojo encima y te quedás a ciegas: arreglala primero."],
 	"o2": ["Máquina de oxígeno",
 		"Fabrica el aire que respira la tripulación. Necesita energía. Si está gastada (borde amarillo o rojo) no da abasto y el oxígeno baja de a poco; si se rompe, el oxígeno se acaba."],
 	"invernadero": ["Invernadero",
 		"Acá crecen las plantas. Cuanto mejor esté, más comida da cada visita al comedor."],
-	"escudo": ["Escudo de radiación",
-		"Protege la base de la radiación del Sol. Sano (sin borde o en amarillo) hace bajar la radiación; en rojo solo la frena; roto, la radiación sube."],
+	"consola de escudo": ["Escudo de radiación",
+		"Protege la base de la radiación del Sol. Sano (sin borde o en amarillo) hace bajar la radiación; en rojo solo evita que aumente; si se rompe, la radiacion empieza a filtrarse."],
 	"rover": ["Rover",
 		"El vehículo para explorar Marte. Un astronauta se sube y sale a investigar lugares nuevos. Cada salida lo gasta un poco."],
 	"escritorio": ["Escritorio de investigación",
@@ -56,9 +56,9 @@ func iniciar() -> void:
 		return
 	eventos.evento_iniciado.connect(_al_iniciar_evento)
 	_intro = true
-	_agregar_info("objetivo", "Objetivo del juego", "(Texto pendiente)")
+	_agregar_info("objetivo", "Objetivo del juego", "Completar 4 investigaciones: Debes salir a explorar el planeta y completar investigaciones")
 	_agregar_tarea("elegir", "Elegí un astronauta",
-		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También sirven su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
+		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También puedes elegorlos con su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
 		func(): return _rect_astronauta(_primer_astronauta()),
 		func(): return base._activo() != null)
 	var peor := _peor_maquina()
@@ -69,7 +69,7 @@ func iniciar() -> void:
 		peor,
 		func(): return "Caminando hacia la máquina..." if _quien_va_a_reparar() != null else "")
 	_agregar_tarea("camara", "Mové la cámara",
-		"Usá la rueda del mouse para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Con un astronauta elegido la cámara lo sigue; llevá el mouse al borde para mirar alrededor.",
+		"Usá la rueda del mouse para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Al elegir un astronauta, lo seguimos por la base.",
 		Callable(),
 		func(): return base.uso_rueda and base.uso_arrastre,
 		null,
