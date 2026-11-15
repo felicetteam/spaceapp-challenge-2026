@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Ajustes" format=3]
+
+[ext_resource type="Script" path="res://Base/ajustes.gd" id="1_ajustes"]
+
+[resource]
+script = ExtResource("1_ajustes")
+velocidad_reloj = 1.0
+consumo_energia = 1.0
+generacion_energia = 1.0
+caida_oxigeno = 1.0
+subida_radiacion = 1.0
+desgaste_maquinas = 1.0
+mantenimiento_inicial_min = 90.0
+mantenimiento_inicial_max = 100.0
+hambre = 1.0
+sueno = 1.0
+dano_salud = 1.0

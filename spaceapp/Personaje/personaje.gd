@@ -5,6 +5,11 @@ signal estado_actualizado(personaje: Personaje)
 
 enum Cabeza { FELICITTE, LAIKA, JUAN, NEIL }
 enum ModoLaburar { MANTENER, ALTERNAR }
+## NINGUNA: control manual (teclado) o quieto. MOVER: va hacia un punto clicado.
+## TRABAJAR: va a una máquina y trabaja dando vueltas alrededor.
+## USAR: va a un mueble (por ejemplo, un asiento del comedor) y lo usa.
+## PASEO: idle, caminando solo por la base (no es una orden del jugador).
+enum Orden { NINGUNA, MOVER, TRABAJAR, USAR, PASEO }
 
 const NOMBRES := {
 	Cabeza.FELICITTE: "Félicette",
@@ -34,8 +39,44 @@ const FACTOR_SALUD := {
 			_aplicar_casco()
 
 @export_group("Movimiento")
-@export var controlado_por_jugador := true
+## Al dejar de controlarlo, si estaba en control manual, queda en idle.
+## Si tenía una orden (ir a un punto o trabajar), la sigue cumpliendo solo.
+@export var controlado_por_jugador := true:
+	set(valor):
+		controlado_por_jugador = valor
+		if not valor and is_node_ready() and not Engine.is_editor_hint() and orden == Orden.NINGUNA:
+			_quedar_idle()
 @export var velocidad := 80.0
+
+@export_group("Trabajo")
+## Cuánto tiempo labura en cada puesto antes de moverse a otro lado de la máquina.
+@export var tiempo_por_puesto_min := 2.5
+@export var tiempo_por_puesto_max := 5.0
+
+@export_group("Paseo en idle")
+## Si es true, cuando no tiene nada que hacer pasea por la base.
+@export var pasear_en_idle := true
+## Espera entre un paseo y el siguiente, en segundos.
+@export var espera_paseo_min := 2.0
+@export var espera_paseo_max := 5.0
+## Distancia de cada paseo, en píxeles.
+@export var distancia_paseo_min := 48.0
+@export var distancia_paseo_max := 200.0
+## Cantidad de paseos antes de volver al punto de inicio (al azar entre los dos).
+@export var paseos_antes_de_volver_min := 1
+@export var paseos_antes_de_volver_max := 3
+## Velocidad al pasear, relativa a la velocidad normal.
+@export_range(0.1, 1.0) var velocidad_paseo := 0.6
+
+@export_group("Salud")
+## Con salud 0 queda inconsciente; se despierta cuando la salud vuelve a este valor.
+@export var umbral_despertar := 40.0
+
+@export_group("Encuentros")
+## A qué distancia (px, entre pies) detecta a otro astronauta adelante en su camino.
+@export var distancia_deteccion := 18.0
+## Sonido de la moneda que se tira para decidir quién se corre.
+@export var sonido_moneda: AudioStream = preload("res://assets/sonidos/sonido_moneda.wav")
 
 @export_group("Input")
 @export var modo_laburar := ModoLaburar.MANTENER
@@ -50,6 +91,7 @@ const FACTOR_SALUD := {
 @onready var sprite_cabeza: AnimatedSprite2D = $Sprite_Cabeza
 @onready var sprite_casco: AnimatedSprite2D = $Sprite_Casco
 @onready var barra_salud: ProgressBar = $Barra_Salud
+@onready var forma_colision: CollisionShape2D = $CollisionShape2D
 
 # Variables de estado vital (0 a 100)
 var salud: float = 100.0
@@ -65,7 +107,56 @@ var corriendo := false
 var laburando := false
 var estado_alerta: String = "Óptimo"
 
+# Point and click (base.gd asigna la navegación)
+var navegacion: Navegacion
+var orden := Orden.NINGUNA
+var maquina_actual: Maquina = null
+## Lo marca la cama mientras está acostado: no se lo puede correr para dejar pasar a otro.
+var en_cama := false
+## Salud 0: no responde a órdenes hasta que se recupera (la roomba lo lleva a una cama).
+var desmayado := false
+## Lo marca la roomba mientras lo transporta.
+var siendo_llevado := false
+## La roomba que viene a buscarlo.
+var reservado_por: Node = null
+## Última vez que comió en el comedor (Time.get_ticks_msec()).
+var ultima_comida_ms := -1000000000
+## Mueble que está usando con la orden USAR (por ejemplo, el comedor).
+var mueble_actual: Node = null
+var _usando := false
+## El jugador lo mandó a una cama (o lo movió con el teclado): si se queda quieto sobre una, se acuesta.
+## Paseando solo, nunca se acuesta por accidente.
+var quiere_acostarse := false
+
+# Paseo en idle
+var _punto_inicio := Vector2.ZERO
+var _t_idle := 0.0
+var _paseos_restantes := 0
+
+var _camino := PackedVector2Array()
+var _idx_camino := 0
+var _destino := Vector2.ZERO        # punto al que lleva el camino actual
+var _destino_orden := Vector2.ZERO  # punto de la orden (se retoma después de un desvío)
+var _en_puesto := false
+var _t_puesto := 0.0
+var _t_atascado := 0.0
+var _reintentos := 0
+
+# Encuentros con otros astronautas
+## ESPERANDO: ganó la moneda y espera a que el otro se corra.
+## CEDIENDO: perdió y camina hasta un costado. CEDIDO: ya está al costado, esperando que el otro pase.
+enum Desvio { NINGUNO, ESPERANDO, CEDIENDO, CEDIDO }
+var _desvio := Desvio.NINGUNO
+var _otro: Personaje = null
+var _t_desvio := 0.0
+var _volver_a := Vector2.INF        # si estaba quieto sin orden, vuelve a este lugar después de ceder
+var _ignorar_hasta := {}            # Personaje -> msec: no volver a detectarlo enseguida
+var _intentos_rodear := 0
+
 var _estilo_relleno: StyleBoxFlat
+var _reproductor_moneda: AudioStreamPlayer2D
+var _cartel: Label
+var _tween_cartel: Tween
 
 func _ready() -> void:
 	_aplicar_cabeza()
@@ -73,19 +164,59 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
 	add_to_group("astronautas")
+	_punto_inicio = pies()
+	_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
+	_paseos_restantes = randi_range(paseos_antes_de_volver_min, paseos_antes_de_volver_max)
 	_configurar_barra_flotante()
+	_crear_cartel_y_sonido()
 	_actualizar_animaciones(true)
 
-func _physics_process(_delta: float) -> void:
-	if Engine.is_editor_hint() or not controlado_por_jugador:
+func _physics_process(delta: float) -> void:
+	if Engine.is_editor_hint():
 		return
 
-	var dir := Input.get_vector(accion_izquierda, accion_derecha, accion_arriba, accion_abajo)
-	# Penalización de velocidad si tiene mucha hambre (> 70%)
-	var mult_vel := 0.75 if hambre > 70.0 else 1.0
-	velocity = dir * velocidad * mult_vel
-	move_and_slide()
+	if desmayado or siendo_llevado:
+		if velocity != Vector2.ZERO or corriendo or laburando:
+			_quedar_idle()
+		return
 
+	var dir := Vector2.ZERO
+	if controlado_por_jugador:
+		dir = Input.get_vector(accion_izquierda, accion_derecha, accion_arriba, accion_abajo)
+	# Mover con el teclado cancela cualquier orden de point and click
+	if dir != Vector2.ZERO and (orden != Orden.NINGUNA or _desvio != Desvio.NINGUNO):
+		detener()
+
+	if _desvio != Desvio.NINGUNO:
+		_proceso_desvio(delta)
+		return
+
+	match orden:
+		Orden.NINGUNA:
+			_mover_manual(dir)
+		Orden.MOVER:
+			if _seguir_camino(delta):
+				detener()
+		Orden.TRABAJAR:
+			_proceso_trabajo(delta)
+		Orden.USAR:
+			_proceso_uso(delta)
+		Orden.PASEO:
+			if _seguir_camino(delta):
+				_fin_de_paseo()
+
+func _mover_manual(dir: Vector2) -> void:
+	if not controlado_por_jugador:
+		if corriendo or laburando or velocity != Vector2.ZERO:
+			_quedar_idle()
+		_contar_idle()
+		return
+
+	if dir != Vector2.ZERO:
+		quiere_acostarse = true  # caminando con el teclado se puede acostar en una cama
+		_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
+	velocity = dir * _velocidad_actual()
+	move_and_slide()
 	set_corriendo(dir != Vector2.ZERO)
 	mirar(dir.x)
 
@@ -95,56 +226,583 @@ func _physics_process(_delta: float) -> void:
 		ModoLaburar.ALTERNAR:
 			if Input.is_action_just_pressed(accion_laburar):
 				alternar_laburar()
+	if dir == Vector2.ZERO and not laburando:
+		_contar_idle()
+
+func _velocidad_actual() -> float:
+	# Penalización de velocidad si tiene mucha hambre (> 70%)
+	var v := velocidad * (0.75 if hambre > 70.0 else 1.0)
+	if orden == Orden.PASEO and _desvio == Desvio.NINGUNO:
+		v *= velocidad_paseo
+	return v
+
+# --- Paseo en idle -----------------------------------------------------------
+
+## Cuenta el tiempo quieto en idle y, cuando se cumple, sale a pasear.
+func _contar_idle() -> void:
+	if not pasear_en_idle or en_cama or desmayado or siendo_llevado:
+		return
+	_t_idle -= get_physics_process_delta_time()
+	if _t_idle <= 0.0:
+		_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
+		_siguiente_paseo()
+
+## Elige un paseo: varios a lugares al azar y, después de 1 a 3, vuelve al punto de inicio.
+func _siguiente_paseo() -> void:
+	if navegacion == null or not navegacion.listo:
+		return
+	quiere_acostarse = false
+	var destino := Vector2.INF
+	if _paseos_restantes <= 0:
+		_paseos_restantes = randi_range(paseos_antes_de_volver_min, paseos_antes_de_volver_max)
+		if pies().distance_to(_punto_inicio) > 12.0:
+			destino = _punto_inicio
+	if destino == Vector2.INF:
+		destino = navegacion.punto_aleatorio(pies(), distancia_paseo_min, distancia_paseo_max)
+		_paseos_restantes -= 1
+	if destino == Vector2.INF:
+		return
+	orden = Orden.PASEO
+	if not _calcular_camino(destino):
+		orden = Orden.NINGUNA
+
+func _fin_de_paseo() -> void:
+	orden = Orden.NINGUNA
+	_camino = PackedVector2Array()
+	_quedar_idle()
+	_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
+
+## Terminó lo que estaba haciendo (máquina reparada, comida, descanso): vuelve al idle.
+func terminar_tarea(mensaje := "") -> void:
+	if mensaje != "":
+		mostrar_cartel(mensaje)
+	detener()
+	_t_idle = randf_range(0.8, 2.0)  # sale a pasear enseguida
+
+# --- Point and click ---------------------------------------------------------
+
+## Posición global de los pies (el centro de la forma de colisión).
+func pies() -> Vector2:
+	return to_global(forma_colision.position)
+
+func tamano_pies() -> Vector2:
+	var r := forma_colision.shape as RectangleShape2D
+	return r.size if r != null else Vector2(14, 2)
+
+## Camina hasta un punto del mapa. Si el punto no es alcanzable (o hay un muro entre
+## el punto y la celda libre más cercana), no se mueve y muestra "Sin camino".
+func ir_a(destino_global: Vector2) -> void:
+	if _no_responde():
+		return
+	quiere_acostarse = false
+	_terminar_desvio()
+	_soltar_maquina()
+	orden = Orden.MOVER
+	if not _calcular_camino(destino_global):
+		mostrar_cartel("Sin camino")
+		detener()
+
+## Va hasta la máquina y se queda trabajando alrededor de ella.
+func trabajar_en(m: Maquina) -> void:
+	if m == null:
+		return
+	if orden == Orden.TRABAJAR and maquina_actual == m:
+		return
+	if _no_responde():
+		return
+	quiere_acostarse = false
+	_terminar_desvio()
+	_soltar_maquina()
+	maquina_actual = m
+	m.agregar_trabajador(self)
+	orden = Orden.TRABAJAR
+	_ir_a_puesto_nuevo()
+
+## Va a un mueble usable (por ahora, el comedor): reserva un lugar, camina hasta ahí y lo usa.
+func usar(mueble: Node) -> void:
+	if mueble == null or _no_responde():
+		return
+	quiere_acostarse = false
+	if orden == Orden.USAR and mueble_actual == mueble:
+		return
+	_terminar_desvio()
+	_soltar_maquina()
+	var lugar: Vector2 = mueble.reservar_asiento(self)
+	if lugar == Vector2.INF:
+		mostrar_cartel("No hay lugar")
+		detener()
+		return
+	mueble_actual = mueble
+	orden = Orden.USAR
+	_usando = false
+	if not _calcular_camino(lugar):
+		mostrar_cartel("Sin camino")
+		detener()
+
+## true si está libre para acostarse solo en una cama: sin órdenes ni desvíos.
+func esta_libre() -> bool:
+	return orden == Orden.NINGUNA and _desvio == Desvio.NINGUNO and not siendo_llevado
+
+## Cancela la orden actual (y cualquier desvío) y queda en idle.
+func detener() -> void:
+	_terminar_desvio()
+	_soltar_maquina()
+	orden = Orden.NINGUNA
+	_camino = PackedVector2Array()
+	_quedar_idle()
+	_t_idle = randf_range(espera_paseo_min, espera_paseo_max)
+
+func esta_trabajando() -> bool:
+	return orden == Orden.TRABAJAR
+
+## Lo que le queda por recorrer (vacío si está quieto).
+func camino_restante() -> PackedVector2Array:
+	if not _moviendose():
+		return PackedVector2Array()
+	return _camino.slice(_idx_camino)
+
+## Si se lo puede correr para dejar pasar a otro.
+## No se corre si está acostado o si el jugador lo maneja con el teclado sin una orden.
+func puede_ceder() -> bool:
+	if en_cama or desmayado or siendo_llevado:
+		return false
+	return not (controlado_por_jugador and orden == Orden.NINGUNA)
+
+func _moviendose() -> bool:
+	if _desvio == Desvio.CEDIENDO:
+		return true
+	if _desvio != Desvio.NINGUNO:
+		return false
+	if orden == Orden.MOVER or orden == Orden.PASEO or (orden == Orden.TRABAJAR and not _en_puesto) \
+			or (orden == Orden.USAR and not _usando):
+		return _idx_camino < _camino.size()
+	return false
+
+func _quedar_idle() -> void:
+	velocity = Vector2.ZERO
+	set_corriendo(false)
+	set_laburando(false)
+
+## Suelta la máquina o el mueble que estaba usando.
+func _soltar_maquina() -> void:
+	if maquina_actual != null:
+		maquina_actual.quitar_trabajador(self)
+	maquina_actual = null
+	_en_puesto = false
+	if mueble_actual != null and is_instance_valid(mueble_actual):
+		mueble_actual.terminar_uso(self)
+	mueble_actual = null
+	_usando = false
+
+func _no_responde() -> bool:
+	if desmayado or siendo_llevado:
+		mostrar_cartel("Inconsciente")
+		return true
+	return false
+
+## Calcula el camino al destino. Si es el destino de la orden, lo guarda para poder retomarlo.
+func _calcular_camino(destino: Vector2, es_destino_de_orden := true) -> bool:
+	if navegacion == null or not navegacion.listo:
+		return false
+	var c := navegacion.camino(pies(), destino)
+	if c.is_empty():
+		return false
+	_poner_camino(c, destino)
+	if es_destino_de_orden:
+		_destino_orden = destino
+	return true
+
+func _poner_camino(c: PackedVector2Array, destino: Vector2) -> void:
+	_camino = c
+	_idx_camino = 0
+	_destino = destino
+	_t_atascado = 0.0
+
+## Avanza por el camino. Devuelve true cuando llegó (o cuando quedó trabado sin remedio).
+func _seguir_camino(delta: float) -> bool:
+	if _idx_camino >= _camino.size():
+		return true
+
+	var objetivo := _camino[_idx_camino]
+	var dif := objetivo - pies()
+	var paso := _velocidad_actual() * delta
+	if dif.length() <= paso:
+		_idx_camino += 1
+		if _idx_camino >= _camino.size():
+			velocity = dif / delta  # termina justo sobre el punto
+			move_and_slide()
+			velocity = Vector2.ZERO
+			return true
+		objetivo = _camino[_idx_camino]
+		dif = objetivo - pies()
+
+	var direccion := dif.normalized()
+
+	# ¿Hay otro astronauta adelante? (no se revisa mientras se está corriendo para dejar pasar)
+	if _desvio == Desvio.NINGUNO:
+		var otro := _personaje_adelante(direccion)
+		if otro != null and _resolver_encuentro(otro):
+			return false
+
+	velocity = direccion * _velocidad_actual()
+	move_and_slide()
+	set_corriendo(true)
+	set_laburando(false)
+	mirar(velocity.x)
+
+	# Chocó de costado con otro astronauta que no vio venir
+	if _desvio == Desvio.NINGUNO:
+		for i in get_slide_collision_count():
+			var otro := get_slide_collision(i).get_collider() as Personaje
+			if otro != null and not _ignorado(otro) and _resolver_encuentro(otro):
+				return false
+
+	# Si algo lo frena (un mueble, una esquina), recalcula; si sigue trabado, se rinde.
+	if get_real_velocity().length() < _velocidad_actual() * 0.1:
+		_t_atascado += delta
+		if _t_atascado > 0.6:
+			_reintentos += 1
+			if _reintentos > 2 or not _recalcular_actual():
+				_reintentos = 0
+				return true
+	else:
+		_t_atascado = 0.0
+		_reintentos = 0
+	return false
+
+func _recalcular_actual() -> bool:
+	if navegacion == null or not navegacion.listo:
+		return false
+	var c := navegacion.camino(pies(), _destino)
+	if c.is_empty():
+		return false
+	_poner_camino(c, _destino)
+	return true
+
+func _ir_a_puesto_nuevo() -> void:
+	_en_puesto = false
+	set_laburando(false)
+	if navegacion == null or not navegacion.listo or maquina_actual == null:
+		return
+	var puestos := maquina_actual.puntos_de_trabajo(navegacion)
+	puestos.shuffle()
+	var aca := pies()
+	# Prefiere moverse a otro lado de la máquina, no quedarse en el mismo lugar
+	puestos.sort_custom(func(a, b): return (a.distance_to(aca) > 12.0) and not (b.distance_to(aca) > 12.0))
+	for p in puestos.slice(0, 10):
+		if _calcular_camino(p):
+			return
+	# Ningún puesto alcanzable sin atravesar un muro: no puede trabajar ahí
+	mostrar_cartel("Sin acceso")
+	detener()
+
+func _proceso_trabajo(delta: float) -> void:
+	if maquina_actual == null or not is_instance_valid(maquina_actual):
+		detener()
+		return
+	if not _en_puesto:
+		if _seguir_camino(delta):
+			_empezar_en_puesto()
+		return
+
+	velocity = Vector2.ZERO
+	maquina_actual.trabajar(delta)
+	# Tarea terminada: la máquina quedó al 100%
+	if maquina_actual.tiene_desgaste and maquina_actual.mantenimiento >= 100.0:
+		terminar_tarea("%s lista" % maquina_actual.nombre_maquina)
+		return
+	_t_puesto -= delta
+	if _t_puesto <= 0.0:
+		_ir_a_puesto_nuevo()
+
+func _proceso_uso(delta: float) -> void:
+	if mueble_actual == null or not is_instance_valid(mueble_actual):
+		detener()
+		return
+	if not _usando:
+		if _seguir_camino(delta):
+			_usando = true
+			_quedar_idle()
+			mueble_actual.empezar_uso(self)
+		return
+	velocity = Vector2.ZERO
+	mueble_actual.proceso_uso(self, delta)
+
+func _empezar_en_puesto() -> void:
+	_en_puesto = true
+	_t_puesto = randf_range(tiempo_por_puesto_min, tiempo_por_puesto_max)
+	velocity = Vector2.ZERO
+	set_corriendo(false)
+	set_laburando(true)
+	mirar(maquina_actual.rect_global().get_center().x - global_position.x)
+
+# --- Encuentros con otros astronautas ----------------------------------------
+
+## El primer astronauta que está adelante, cerca y en la dirección en la que camina.
+func _personaje_adelante(direccion: Vector2) -> Personaje:
+	var mis_pies := pies()
+	for nodo in get_tree().get_nodes_in_group("astronautas"):
+		var p := nodo as Personaje
+		if p == null or p == self or _ignorado(p):
+			continue
+		var d := p.pies() - mis_pies
+		var dist := d.length()
+		if dist > 0.01 and dist < distancia_deteccion and direccion.dot(d / dist) > 0.6:
+			return p
+	return null
+
+func _ignorado(p: Personaje) -> bool:
+	if p._otro == self:
+		return true  # ya estamos resolviendo un encuentro entre los dos
+	return _ignorar_hasta.get(p, 0) > Time.get_ticks_msec()
+
+func _ignorar(p: Personaje, segundos: float) -> void:
+	_ignorar_hasta[p] = Time.get_ticks_msec() + int(segundos * 1000.0)
+
+## Decide qué hacer con otro astronauta que está en el camino. Devuelve true si
+## este personaje cambió de estado (espera, cede o rodea) y no tiene que avanzar este frame.
+func _resolver_encuentro(otro: Personaje) -> bool:
+	# Si el otro no se puede correr (está acostado, lo maneja el jugador, o ya está
+	# resolviendo otro encuentro), no hay moneda: lo rodeo.
+	if not otro.puede_ceder() or otro._desvio != Desvio.NINGUNO:
+		return _rodear(otro)
+
+	# Se tira una moneda para ver quién se corre
+	var cedo_yo := randi() % 2 == 0
+	var perdedor: Personaje = self if cedo_yo else otro
+	var ganador: Personaje = otro if cedo_yo else self
+	_tirar_moneda(perdedor)
+	_ignorar(otro, 2.0)
+	otro._ignorar(self, 2.0)
+
+	# El ganador está quieto (trabajando o parado) y el que perdió es el que viene caminando:
+	# correrse no sirve, así que el perdedor lo rodea.
+	if perdedor._moviendose() and not ganador._moviendose():
+		return perdedor._rodear(ganador) or perdedor == self
+
+	if perdedor._ceder_a(ganador):
+		if ganador._moviendose():
+			ganador._esperar_a(perdedor)
+		return true
+	# El perdedor no encontró dónde correrse: prueba el otro
+	if ganador._moviendose() and ganador._rodear(perdedor):
+		return ganador == self
+	return _rodear(otro)
+
+## Busca un costado fuera del camino del otro y camina hasta ahí.
+func _ceder_a(ganador: Personaje) -> bool:
+	if navegacion == null or not navegacion.listo:
+		return false
+	var c := navegacion.camino_para_ceder(pies(), ganador.pies(), ganador.camino_restante())
+	if c.is_empty():
+		return false
+	if orden == Orden.NINGUNA:
+		_volver_a = pies()  # estaba quieto: después vuelve a su lugar
+	if orden == Orden.TRABAJAR and _en_puesto:
+		_en_puesto = false  # deja el puesto y después vuelve
+	if orden == Orden.USAR and _usando:
+		_usando = false  # se levanta del asiento (lo sigue teniendo reservado) y después vuelve
+	_desvio = Desvio.CEDIENDO
+	_otro = ganador
+	_t_desvio = 0.0
+	_poner_camino(c, c[c.size() - 1])
+	set_laburando(false)
+	return true
+
+func _esperar_a(perdedor: Personaje) -> void:
+	_desvio = Desvio.ESPERANDO
+	_otro = perdedor
+	_t_desvio = 0.0
+	velocity = Vector2.ZERO
+	set_corriendo(false)
+
+## Recalcula el camino rodeando al otro. Si no hay forma, espera un momento y vuelve a intentar;
+## después de varios intentos abandona la orden.
+func _rodear(otro: Personaje) -> bool:
+	_ignorar(otro, 1.5)
+	if navegacion != null and navegacion.listo:
+		var evitar: Array[Vector2] = [otro.pies()]
+		var c := navegacion.camino_evitando(pies(), _destino, evitar)
+		if not c.is_empty():
+			_poner_camino(c, _destino)
+			_intentos_rodear = 0
+			return false  # sigue caminando por el camino nuevo
+	_intentos_rodear += 1
+	if _intentos_rodear > 3:
+		_intentos_rodear = 0
+		mostrar_cartel("Sin paso")
+		if orden == Orden.TRABAJAR:
+			_ir_a_puesto_nuevo()
+		else:
+			detener()
+		return true
+	# Espera un ratito sin otro asignado y reintenta
+	_desvio = Desvio.ESPERANDO
+	_otro = null
+	_t_desvio = 1.6  # el timeout de ESPERANDO es 2.5 s: espera ~0.9 s
+	velocity = Vector2.ZERO
+	set_corriendo(false)
+	return true
+
+func _proceso_desvio(delta: float) -> void:
+	_t_desvio += delta
+	if _otro != null and not is_instance_valid(_otro):
+		_otro = null
+	match _desvio:
+		Desvio.ESPERANDO:
+			velocity = Vector2.ZERO
+			var listo := _otro == null or _otro._desvio == Desvio.CEDIDO or _otro._desvio == Desvio.NINGUNO
+			if (listo and _otro != null) or _t_desvio > 2.5:
+				_desvio = Desvio.NINGUNO
+				_otro = null
+		Desvio.CEDIENDO:
+			if _seguir_camino(delta) or _t_desvio > 3.0:
+				_desvio = Desvio.CEDIDO
+				_t_desvio = 0.0
+				_quedar_idle()
+		Desvio.CEDIDO:
+			velocity = Vector2.ZERO
+			var paso := _otro == null or _otro.pies().distance_to(pies()) > 32.0 or not _otro._moviendose()
+			if (paso and _t_desvio > 0.3) or _t_desvio > 4.0:
+				_retomar()
+
+## Termina el desvío y vuelve a lo que estaba haciendo.
+func _retomar() -> void:
+	var otro := _otro
+	_desvio = Desvio.NINGUNO
+	_otro = null
+	if otro != null:
+		_ignorar(otro, 1.0)
+	match orden:
+		Orden.MOVER:
+			if not _calcular_camino(_destino_orden):
+				detener()
+		Orden.TRABAJAR:
+			# Vuelve al puesto en el que estaba (o a uno nuevo si ya no se llega)
+			if not _calcular_camino(_destino_orden):
+				_ir_a_puesto_nuevo()
+		Orden.USAR:
+			if not _calcular_camino(_destino_orden):
+				detener()
+		Orden.PASEO:
+			if not _calcular_camino(_destino_orden):
+				_fin_de_paseo()
+		Orden.NINGUNA:
+			if _volver_a != Vector2.INF and _calcular_camino(_volver_a):
+				orden = Orden.MOVER
+			else:
+				_quedar_idle()
+	_volver_a = Vector2.INF
+
+## Corta el desvío sin retomar (por ejemplo, al recibir una orden nueva) y avisa al otro.
+func _terminar_desvio() -> void:
+	var otro := _otro
+	_desvio = Desvio.NINGUNO
+	_otro = null
+	_volver_a = Vector2.INF
+	if otro != null and is_instance_valid(otro) and otro._otro == self:
+		if otro._desvio == Desvio.ESPERANDO:
+			otro._desvio = Desvio.NINGUNO
+			otro._otro = null
+		elif otro._desvio == Desvio.CEDIENDO or otro._desvio == Desvio.CEDIDO:
+			otro._retomar()
+
+func _tirar_moneda(perdedor: Personaje) -> void:
+	if _reproductor_moneda != null and sonido_moneda != null:
+		_reproductor_moneda.play()
+	mostrar_cartel("Moneda: cede %s" % perdedor.obtener_nombre())
+
+## Muestra un texto corto sobre la cabeza durante un momento.
+func mostrar_cartel(texto: String, segundos := 1.4) -> void:
+	if _cartel == null:
+		return
+	_cartel.text = texto
+	_cartel.visible = true
+	_cartel.modulate.a = 1.0
+	if _tween_cartel != null:
+		_tween_cartel.kill()
+	_tween_cartel = create_tween()
+	_tween_cartel.tween_interval(segundos)
+	_tween_cartel.tween_property(_cartel, "modulate:a", 0.0, 0.4)
+	_tween_cartel.tween_callback(func(): _cartel.visible = false)
+
+func _crear_cartel_y_sonido() -> void:
+	_reproductor_moneda = AudioStreamPlayer2D.new()
+	_reproductor_moneda.stream = sonido_moneda
+	add_child(_reproductor_moneda)
+
+	_cartel = Label.new()
+	_cartel.visible = false
+	_cartel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cartel.z_index = 20
+	_cartel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cartel.add_theme_font_size_override("font_size", 8)
+	_cartel.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	_cartel.add_theme_constant_override("outline_size", 3)
+	_cartel.size = Vector2(90, 12)
+	_cartel.position = Vector2(-45, -36)
+	add_child(_cartel)
+
+# --- Salud -------------------------------------------------------------------
 
 # Llamado desde base.gd en cada frame con las condiciones de la base
+# Llamado desde base.gd en cada frame con los recursos de la base
 func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_particulas: bool) -> void:
 	var factor_afin: float = FACTOR_SALUD.get(cabeza, 1.0)
 
-	# 1. Alta radiación multiplica el desgaste de hambre y sueño
-	var mult_rad := 1.0
-	if radiacion > 75.0:
-		mult_rad = 2.0
-	elif radiacion >= 40.0:
-		mult_rad = 1.5
+	# 1. El oxígeno marca qué tan rápido baja la vida: con 100% es normal, con 0% va 5 veces más rápido
+	var mult_o2 := 1.0 + (100.0 - oxigeno) / 25.0
 
-	# 2. Oxígeno bajo cansa más rápido
-	var mult_o2_sueno := 1.5 if oxigeno < 50.0 else 1.0
-
-	# 3. Avance de hambre y sueño
-	var gasto_base := 0.25 * factor_afin * delta
+	# 2. Avance de hambre y sueño (las camas los recuperan mientras está acostado)
+	var aj := Ajustes.actual()
+	var gasto_base := 0.25 * factor_afin * delta * mult_o2
 	var extra_trabajo := 1.3 if laburando else 1.0
 
 	if not durmiendo:
-		hambre = clampf(hambre + gasto_base * extra_trabajo * mult_rad, 0.0, 100.0)
-		sueno = clampf(sueno + gasto_base * mult_rad * mult_o2_sueno, 0.0, 100.0)
+		hambre = clampf(hambre + gasto_base * extra_trabajo * aj.hambre, 0.0, 100.0)
+		sueno = clampf(sueno + gasto_base * aj.sueno, 0.0, 100.0)
 	else:
-		sueno = clampf(sueno - 6.0 * delta, 0.0, 100.0)
 		dano_ambiental = maxf(0.0, dano_ambiental - 2.5 * delta)
 
-	# 4. Daño ambiental directo
+	# 3. Daño ambiental directo
 	var dano_extra := 0.0
 	if oxigeno < 20.0:
 		dano_extra += 1.5 * delta
-	elif oxigeno < 50.0:
-		dano_extra += 0.25 * delta
-
-	if radiacion > 75.0 and not en_refugio:
-		dano_extra += 0.5 * delta
-
+	if radiacion > 80.0:
+		dano_extra += 0.5 * delta  # por encima de 80% de radiación la salud empieza a bajar
 	if lluvia_particulas and en_exterior:
 		dano_extra += 2.0 * delta
 
-	dano_ambiental = clampf(dano_ambiental + dano_extra, 0.0, 100.0)
+	dano_ambiental = clampf(dano_ambiental + dano_extra * aj.dano_salud, 0.0, 100.0)
 
-	# 5. Cálculo final de Salud
+	# 4. Cálculo final de Salud
 	var saciedad := 100.0 - hambre
 	var descanso := 100.0 - sueno
 	var salud_base := (saciedad + descanso) * 0.5
 	salud = clampf(salud_base - dano_ambiental, 0.0, 100.0)
 
+	# 5. Inconsciencia
+	if not desmayado and salud <= 0.0:
+		_desmayar()
+	elif desmayado and salud >= umbral_despertar:
+		_despertar()
+
 	_actualizar_alerta(oxigeno, radiacion, lluvia_particulas)
 	_actualizar_barra_flotante()
 	estado_actualizado.emit(self)
+
+func _desmayar() -> void:
+	detener()
+	desmayado = true
+	if not en_cama:
+		rotation = -PI / 2.0  # queda tirado en el piso
+	mostrar_cartel("¡Inconsciente!")
+
+func _despertar() -> void:
+	desmayado = false
+	if not en_cama and not siendo_llevado:
+		rotation = 0.0
+	mostrar_cartel("Se despertó")
 
 func comer(cantidad: float = 40.0, bonus_calidad: float = 0.0) -> void:
 	hambre = maxf(0.0, hambre - cantidad)
@@ -154,22 +812,31 @@ func obtener_nombre() -> String:
 	return NOMBRES.get(cabeza, "Astronauta")
 
 func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
-	if lluvia and en_exterior:
+	if desmayado:
+		estado_alerta = "Inconsciente"
+	elif lluvia and en_exterior:
 		estado_alerta = "¡Partículas!"
 	elif oxigeno < 20.0:
 		estado_alerta = "¡Sin O2!"
-	elif radiacion > 75.0 and not en_refugio:
+	elif radiacion > 80.0:
 		estado_alerta = "¡Radiación!"
 	elif hambre > 70.0:
 		estado_alerta = "Hambre"
 	elif sueno > 75.0:
 		estado_alerta = "Sueño"
+	elif en_cama and durmiendo:
+		estado_alerta = "Descansando"
+	elif orden == Orden.TRABAJAR:
+		estado_alerta = "Trabajando"
+	elif orden == Orden.USAR and _usando:
+		estado_alerta = "Comiendo"
 	else:
 		estado_alerta = "Bien"
 
 func _configurar_barra_flotante() -> void:
 	if barra_salud == null:
 		return
+	barra_salud.mouse_filter = Control.MOUSE_FILTER_IGNORE  # que no tape los clics del point and click
 	var sb_fondo := StyleBoxFlat.new()
 	sb_fondo.bg_color = Color(0.08, 0.08, 0.1, 0.85)
 	barra_salud.add_theme_stylebox_override("background", sb_fondo)
@@ -190,7 +857,7 @@ func _actualizar_barra_flotante() -> void:
 		else:
 			_estilo_relleno.bg_color = Color(0.9, 0.2, 0.2)    # Rojo
 
-# --- API pública de animaciones (sin cambios) ---
+# --- API pública de animaciones ----------------------------------------------
 func set_corriendo(valor: bool) -> void:
 	if valor != corriendo:
 		corriendo = valor

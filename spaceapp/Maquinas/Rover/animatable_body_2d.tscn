@@ -1,8 +1,11 @@
 [gd_scene format=3 uid="uid://ca0epkp7ql63l"]
 
+[ext_resource type="Script" path="res://Maquinas/maquina.gd" id="9_maquina"]
+
 [sub_resource type="SpriteFrames" id="SpriteFrames_2tdgn"]
 
 [node name="R" type="AnimatableBody2D" unique_id=1916147968]
+script = ExtResource("9_maquina")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=1192328405]
 sprite_frames = SubResource("SpriteFrames_2tdgn")

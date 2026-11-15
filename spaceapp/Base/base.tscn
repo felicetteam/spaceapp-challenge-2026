@@ -5,8 +5,19 @@
 [ext_resource type="PackedScene" uid="uid://0e3ndnk638lg" path="res://Muebles/cama hospital/cama_hospital.tscn" id="4_0m7nb"]
 [ext_resource type="PackedScene" uid="uid://bsg88fdph5q8a" path="res://Personaje/personaje.tscn" id="4_8k6vf"]
 [ext_resource type="PackedScene" uid="uid://cnagddqo3duos" path="res://UI/hud.tscn" id="4_77ap6"]
+[ext_resource type="PackedScene" uid="uid://bvf0se3utsrql" path="res://Muebles/Escritorio/escritorio.tscn" id="6_77y2d"]
+[ext_resource type="PackedScene" uid="uid://dau204lnofnl" path="res://Muebles/cama habitacion/cama_habitacion.tscn" id="7_1qkdb"]
+[ext_resource type="PackedScene" uid="uid://ddaixa30v517d" path="res://Maquinas/Fotovoltaica/fotovoltaica.tscn" id="8_1qkdb"]
+[ext_resource type="PackedScene" uid="uid://cwgr3f6x3cy0k" path="res://Maquinas/Comunicaciones/comunicaciones.tscn" id="9_ka7hq"]
+[ext_resource type="PackedScene" uid="uid://cmghr31ad07kg" path="res://Maquinas/Rover/rover.tscn" id="10_2hat1"]
+[ext_resource type="PackedScene" path="res://Maquinas/O2/maquina_o2.tscn" id="11_eeexo"]
+[ext_resource type="PackedScene" path="res://Maquinas/Invernadero/invernadero.tscn" id="12_at3lh"]
+[ext_resource type="PackedScene" path="res://Muebles/Comedor/comedor.tscn" id="13_jycdo"]
+[ext_resource type="PackedScene" path="res://Maquinas/Escudo/escudo_radiacion.tscn" id="14_2shue"]
+[ext_resource type="PackedScene" path="res://Robots/Roomba/roomba.tscn" id="15_t1rgp"]
 
 [node name="base" type="Node2D" unique_id=339836169]
+y_sort_enabled = true
 script = ExtResource("1_0m7nb")
 
 [node name="Camera2D" type="Camera2D" parent="." unique_id=1225135573]
@@ -17,18 +28,62 @@ tile_map_data = PackedByteArray("AAAiAOv/AAADAAMAAAAiAOz/AAADAAMAAAAjAOz/AAADAAM
 tile_set = ExtResource("1_rpg24")
 
 [node name="cama_hospital" parent="." unique_id=107914212 instance=ExtResource("4_0m7nb")]
-position = Vector2(13, 37)
-
-[node name="cama_hospital2" parent="." unique_id=1643107742 instance=ExtResource("4_0m7nb")]
-position = Vector2(53, 36)
+position = Vector2(32, 40)
 
 [node name="HUD" parent="." unique_id=1767131141 instance=ExtResource("4_77ap6")]
 
 [node name="Juan" parent="." unique_id=1006636007 instance=ExtResource("4_8k6vf")]
+position = Vector2(185, 30)
 cabeza = 2
 
 [node name="Laika" parent="." unique_id=784882181 instance=ExtResource("4_8k6vf")]
+position = Vector2(249, 21)
 cabeza = 1
 
 [node name="Felicette" parent="." unique_id=1866042998 instance=ExtResource("4_8k6vf")]
+position = Vector2(188, -33)
 cabeza = 0
+
+[node name="Escritorio" parent="." unique_id=1570372049 instance=ExtResource("6_77y2d")]
+position = Vector2(306, -79)
+
+[node name="Fotovoltaica" parent="." unique_id=480067823 instance=ExtResource("8_1qkdb")]
+position = Vector2(-61, 203)
+
+[node name="Fotovoltaica2" parent="." unique_id=1379625403 instance=ExtResource("8_1qkdb")]
+position = Vector2(40, 213)
+
+[node name="Fotovoltaica3" parent="." unique_id=1660083758 instance=ExtResource("8_1qkdb")]
+position = Vector2(-11, 208)
+
+[node name="cama_habitacion" parent="." unique_id=1231800518 instance=ExtResource("7_1qkdb")]
+position = Vector2(161, 216)
+
+[node name="cama_habitacion2" parent="." unique_id=305973533 instance=ExtResource("7_1qkdb")]
+position = Vector2(162, 252)
+
+[node name="cama_habitacion3" parent="." unique_id=1266587192 instance=ExtResource("7_1qkdb")]
+position = Vector2(162, 291)
+
+[node name="comunicaciones" parent="." unique_id=1936745331 instance=ExtResource("9_ka7hq")]
+z_index = 1
+position = Vector2(478, -15)
+
+[node name="Rover" parent="." unique_id=1916147968 instance=ExtResource("10_2hat1")]
+position = Vector2(201, 95)
+scale = Vector2(0.5, 0.5)
+
+[node name="MaquinaO2" parent="." unique_id=503073466 instance=ExtResource("11_eeexo")]
+position = Vector2(503, 123)
+
+[node name="Invernadero" parent="." unique_id=966843190 instance=ExtResource("12_at3lh")]
+position = Vector2(243, -194)
+
+[node name="Comedor" parent="." unique_id=482420895 instance=ExtResource("13_jycdo")]
+position = Vector2(301, 4)
+
+[node name="EscudoRadiacion" parent="." unique_id=1765628027 instance=ExtResource("14_2shue")]
+position = Vector2(478, -210)
+
+[node name="Roomba" parent="." unique_id=1409056617 instance=ExtResource("15_t1rgp")]
+position = Vector2(4, 45)

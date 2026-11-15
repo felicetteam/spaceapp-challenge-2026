@@ -20,7 +20,7 @@ region = Rect2(0, 192, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_6j8ie"]
 atlas = ExtResource("1_7lctg")
-region = Rect2(32, 32, 32, 32)
+region = Rect2(64, 32, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ops51"]
 atlas = ExtResource("1_7lctg")
@@ -57,6 +57,10 @@ region = Rect2(0, 0, 32, 32)
 [sub_resource type="AtlasTexture" id="AtlasTexture_tq5hc"]
 atlas = ExtResource("1_7lctg")
 region = Rect2(0, 64, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_s3syy"]
+atlas = ExtResource("1_7lctg")
+region = Rect2(32, 32, 32, 32)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qoin1"]
 atlas = ExtResource("1_7lctg")
@@ -145,10 +149,13 @@ animations = [{
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_tq5hc")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_s3syy")
 }],
 "loop": 1,
 "name": &"idle_brazo",
-"speed": 5.0
+"speed": 2.0
 }, {
 "frames": [{
 "duration": 1.0,

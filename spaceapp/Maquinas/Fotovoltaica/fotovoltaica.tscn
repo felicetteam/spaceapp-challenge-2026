@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://ddaixa30v517d"]
+
+[ext_resource type="Script" path="res://Maquinas/Fotovoltaica/fotovoltaica.gd" id="9_maquina"]
+[ext_resource type="Texture2D" uid="uid://dhuyt8q2uww2t" path="res://assets/sprites/fotovoltaica.png" id="1_2sf73"]
+
+[node name="Fotovoltaica" type="StaticBody2D" unique_id=480067823]
+script = ExtResource("9_maquina")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=989184063]
+texture = ExtResource("1_2sf73")

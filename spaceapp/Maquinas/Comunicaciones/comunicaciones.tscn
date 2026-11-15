@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cwgr3f6x3cy0k"]
+
+[ext_resource type="Texture2D" uid="uid://duva8uni7ekvf" path="res://assets/sprites/radio_monitor.png" id="1_wxmmp"]
+[ext_resource type="Script" path="res://Maquinas/Comunicaciones/comunicaciones.gd" id="9_maquina"]
+
+[node name="comunicaciones" type="StaticBody2D" unique_id=1936745331]
+script = ExtResource("9_maquina")
+
+[node name="Sprite2D" type="Sprite2D" parent="." unique_id=1692038786]
+z_index = 1
+position = Vector2(13, 3)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1_wxmmp")
