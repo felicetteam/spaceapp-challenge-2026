@@ -8,6 +8,7 @@ extends Control
 const ESCENA_JUEGO := "res://Base/base.tscn"
 const ESCENA_MENU := "res://Pantallas/Menu/MenuInicio.tscn"
 const TripulacionElegida := preload("res://Personaje/tripulacion_elegida.gd")
+const MusicaMenu := preload("res://Pantallas/musica_menu.gd")
 const CUADROS := preload("res://Personaje/sprite_frames_personaje.tres")
 const FUENTE_TITULO := preload("res://assets/fonts/Klaxon-Crunchy.otf")
 const FUENTE_NOMBRE := preload("res://assets/fonts/squares.ttf")
@@ -25,6 +26,7 @@ var _t := 0.0
 
 
 func _ready() -> void:
+	MusicaMenu.sonar(get_tree())  # la misma música del menú, sin cortarse
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for _i in LUGARES:
 		_elegidos.append(-1)

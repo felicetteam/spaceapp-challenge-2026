@@ -25,7 +25,25 @@ var _lbl_cargando: Label
 var _inicio_ms := Time.get_ticks_msec()
 const CUADROS_PERSONAJE := preload("res://Personaje/sprite_frames_personaje.tres")
 
-var diario: Node = null
+## El diario de la partida (Base/diario.gd) o el global (Base/diario_global.gd, desde el menú).
+var diario = null
+## Pantalla con la que abre: "" (las carpetas) o "diario" (con seleccion_inicial elegida).
+var abrir_en := ""
+var seleccion_inicial := -1
+## Escenas de donde sacar los dibujos si no hay un mapa cargado (por ejemplo, en el menú).
+const ESCENAS_DIBUJOS := [
+	["fotovoltaica", "res://Maquinas/Fotovoltaica/fotovoltaica.tscn"],
+	["o2", "res://Maquinas/O2/maquina_o2.tscn"],
+	["escudo", "res://Maquinas/Escudo/escudo_radiacion.tscn"],
+	["comunicaciones", "res://Maquinas/Comunicaciones/comunicaciones.tscn"],
+	["invernadero", "res://Maquinas/Invernadero/invernadero.tscn"],
+	["rover", "res://Maquinas/Rover/rover.tscn"],
+	["escritorio", "res://Muebles/Escritorio/escritorio.tscn"],
+	["comedor", "res://Muebles/Comedor/comedor.tscn"],
+	["cama", "res://Muebles/cama habitacion/cama_habitacion.tscn"],
+	["cama_hospital", "res://Muebles/cama hospital/cama_hospital.tscn"],
+	["roomba", "res://Robots/Roomba/roomba.tscn"],
+]
 
 var _titulo: Label
 var _boton_volver: Button
@@ -91,7 +109,13 @@ func _ready() -> void:
 
 	_juntar_texturas()
 	_mostrar_carpetas()
+	if abrir_en == "diario":
+		_mostrar_diario(seleccion_inicial)
 	_empezar_intro()
+
+
+func _es_global() -> bool:
+	return diario != null and diario.get("es_global") == true
 
 
 # --- Animación de entrada (la compu) ----------------------------------------------
@@ -217,14 +241,15 @@ func _limpiar(titulo: String, al_volver: Callable) -> void:
 
 
 func _mostrar_carpetas() -> void:
-	_limpiar("Información", Callable())
+	_limpiar("Diario global" if _es_global() else "Información", Callable())
 	var centro := CenterContainer.new()
 	_cuerpo.add_child(centro)
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 60)
 	centro.add_child(fila)
 	for datos in [["Base", "Máquinas y mecánicas", _mostrar_base.bind("maquinas")],
-			["Diario", "Investigaciones de la misión", _mostrar_diario.bind(-1)]]:
+			["Diario", "Investigaciones completadas en partidas ganadas" if _es_global()
+					else "Investigaciones de la misión", _mostrar_diario.bind(-1)]]:
 		var b := _boton(datos[0], Vector2(230, 190))
 		b.icon = _icono_carpeta()
 		b.expand_icon = true
@@ -352,7 +377,7 @@ func _mostrar_detalle(item: Dictionary, seccion: String) -> void:
 
 
 func _mostrar_diario(seleccion: int) -> void:
-	_limpiar("Diario", _mostrar_carpetas)
+	_limpiar("Diario global" if _es_global() else "Diario", _mostrar_carpetas)
 	if diario == null or diario.misiones.is_empty():
 		_cuerpo.add_child(_label("El diario está vacío.", 15, Color.WHITE))
 		return
@@ -365,6 +390,24 @@ func _mostrar_diario(seleccion: int) -> void:
 	var cols := _dos_columnas()
 	var izq: VBoxContainer = cols[0]
 	var der: PanelContainer = cols[1]
+	# Con muchas investigaciones (el diario global tiene todas) la lista tiene scroll
+	var lista: VBoxContainer = izq
+	if diario.misiones.size() > 6:
+		var scroll_izq := ScrollContainer.new()
+		scroll_izq.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll_izq.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		izq.add_child(scroll_izq)
+		lista = VBoxContainer.new()
+		lista.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lista.add_theme_constant_override("separation", 8)
+		scroll_izq.add_child(lista)
+	if _es_global():
+		var resumen := _label("%d de %d investigaciones · %d partidas ganadas" % [
+				diario.cantidad_desbloqueadas(), diario.misiones.size(), int(diario.partidas_ganadas)], 12,
+				Color(1.0, 0.85, 0.45))
+		resumen.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		izq.add_child(resumen)
+		izq.move_child(resumen, 0)
 	for i in diario.misiones.size():
 		var m: Dictionary = diario.misiones[i]
 		var b := _boton(_texto_lista(m), Vector2(0, 58))
@@ -374,7 +417,7 @@ func _mostrar_diario(seleccion: int) -> void:
 		b.toggle_mode = true
 		b.button_pressed = i == _sel_diario
 		b.pressed.connect(_mostrar_diario.bind(i))
-		izq.add_child(b)
+		lista.add_child(b)
 
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -389,6 +432,8 @@ func _mostrar_diario(seleccion: int) -> void:
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(t)
 		var txt := "Todavía no se desbloqueó. Salí a explorar con el rover: al volver de cada exploración, su investigación aparece en el diario."
+		if _es_global():
+			txt = "Todavía no la completaste en ninguna partida ganada. ¡Ganá una partida con esta misión para guardarla en el diario!"
 		vbox.add_child(_parrafo(txt, Color(0.85, 0.87, 0.92)))
 		return
 	vbox.add_child(_label(String(m["titulo"]), 20, Color(0.6, 0.9, 1.0)))
@@ -525,6 +570,16 @@ func _juntar_texturas() -> void:
 		_guardar_textura("cama_hospital" if bool(c.get("solo_desmayados")) else "cama", c)
 	for r in get_tree().get_nodes_in_group("roombas"):
 		_guardar_textura("roomba", r)
+	# Sin mapa (por ejemplo, desde el menú): se arman las escenas un momento para sacar el dibujo
+	for datos in ESCENAS_DIBUJOS:
+		if _texturas.has(datos[0]) or not ResourceLoader.exists(datos[1]):
+			continue
+		var escena := load(datos[1]) as PackedScene
+		if escena == null:
+			continue
+		var nodo := escena.instantiate()
+		_guardar_textura(datos[0], nodo)
+		nodo.free()
 
 
 func _guardar_textura(clave: String, nodo: Node) -> void:
@@ -579,6 +634,8 @@ func _imagen(ruta: String) -> Texture2D:
 func _texto_lista(m: Dictionary) -> String:
 	if not m["desbloqueada"]:
 		return "???"
+	if _es_global():
+		return String(m["titulo"])
 	if diario.esta_completa(m):
 		return "%s\n(completa)" % String(m["titulo"])
 	if diario.activa() == m:
@@ -587,7 +644,11 @@ func _texto_lista(m: Dictionary) -> String:
 
 
 func _texto_estado(m: Dictionary) -> String:
+	if _es_global():
+		return "Completada en una partida ganada."
 	if diario.esta_completa(m):
+		if diario.has_method("reporte_respondido") and diario.reporte_respondido(m):
+			return "Investigación completa y reporte respondido."
 		return "Investigación completa. ¡Respondé el reporte!"
 	if diario.activa() == m:
 		var pct := roundi(100.0 * diario.fraccion(m))

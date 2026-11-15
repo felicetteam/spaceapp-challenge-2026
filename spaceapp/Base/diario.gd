@@ -9,12 +9,13 @@ extends Node
 ## Se pueden tener varias investigaciones desbloqueadas, pero el escritorio solo avanza la más
 ## vieja (la primera que se desbloqueó y no está completa).
 ##
-## Diario global (entre partidas): todavía sin definir. global_completadas() devuelve las que
-## ya se completaron en otras partidas; las misiones se eligen primero entre las que faltan.
+## Diario global (Base/diario_global.gd): las investigaciones completadas en partidas ganadas.
+## Las misiones de cada partida se eligen primero entre las que todavía faltan ahí.
 
 signal cambio
 
 const RUTA := "res://Base/investigaciones.json"
+const DiarioGlobal := preload("res://Base/diario_global.gd")
 const MISIONES_POR_PARTIDA := 4
 ## Progreso que hay que juntar en el escritorio para completar una investigación
 ## (el escritorio suma progreso_por_segundo por segundo de trabajo).
@@ -67,9 +68,9 @@ func _elegir_misiones() -> void:
 		misiones.append(m)
 
 
-## Ids ya completados en el diario global (de otras partidas). Por ahora, ninguno.
+## Ids ya completados en el diario global (de partidas ganadas).
 func global_completadas() -> Array:
-	return []
+	return DiarioGlobal.completadas()
 
 
 ## La próxima misión a explorar ({} si ya no quedan). No avanza la lista.
@@ -143,3 +144,36 @@ func avanzar(cantidad: float) -> Dictionary:
 ## 0..1 de una misión.
 func fraccion(m: Dictionary) -> float:
 	return clampf(float(m.get("progreso", 0.0)) / PROGRESO_TOTAL, 0.0, 1.0)
+
+
+## El reporte de esta misión ya está respondido (todas sus preguntas).
+func reporte_respondido(m: Dictionary) -> bool:
+	var respuestas: Dictionary = m.get("respuestas", {})
+	return respuestas.size() >= (m.get("reporte", []) as Array).size()
+
+
+## Índices de las misiones completadas cuyo reporte falta responder.
+func reportes_pendientes() -> Array[int]:
+	var lista: Array[int] = []
+	for i in misiones.size():
+		if esta_completa(misiones[i]) and not reporte_respondido(misiones[i]):
+			lista.append(i)
+	return lista
+
+
+## Todas las investigaciones de la partida completas y con su reporte respondido.
+func todo_completo() -> bool:
+	if misiones.is_empty():
+		return false
+	for m in misiones:
+		if not esta_completa(m) or not reporte_respondido(m):
+			return false
+	return true
+
+
+func cantidad_completas() -> int:
+	var n := 0
+	for m in misiones:
+		if esta_completa(m):
+			n += 1
+	return n

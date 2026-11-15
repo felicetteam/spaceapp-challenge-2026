@@ -60,6 +60,8 @@ const MECANICAS := [
 		"texto": "Cada tanto pasa algo grave (tormentas, fallas) y tenés que decidir qué hacer. Algunos duran un rato, otros piden trabajar en una estructura y otros se solucionan recién cuando reparás la máquina hasta verde. Hasta que termina uno, no sale el siguiente."},
 	{"id": "camara", "titulo": "Cámara y controles",
 		"texto": "Rueda del mouse (o la barra de la derecha) para acercar y alejar; clic y arrastrar para mover el mapa. Teclas 1, 2 y 3 o su tarjeta para elegir astronauta. Abajo a la izquierda, pausa y play: en pausa podés seguir dando órdenes."},
+	{"id": "victoria", "titulo": "Ganar y perder",
+		"texto": "Ganás cuando completás las investigaciones de la misión y respondés sus reportes (si falta alguno, abajo a la derecha aparece \"Reporte pendiente\"). Las investigaciones de las partidas ganadas quedan en el diario global (Ver Diario, en el menú). Perdés si los tres astronautas quedan inconscientes por falta de salud al mismo tiempo."},
 	{"id": "noche", "titulo": "Día y noche",
 		"texto": "De noche los paneles no generan energía. Cuando todos los que están en la base duermen, el tiempo pasa al triple hasta que alguien se despierta o amanece."},
 ]

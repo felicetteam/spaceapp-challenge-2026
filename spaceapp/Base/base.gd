@@ -67,6 +67,10 @@ const TutorialScript := preload("res://Base/tutorial.gd")
 ## Diario de investigaciones de la partida (las misiones de exploración).
 const DiarioScript := preload("res://Base/diario.gd")
 const TripulacionElegida := preload("res://Personaje/tripulacion_elegida.gd")
+## Victoria (todas las investigaciones con su reporte) o derrota (todos inconscientes).
+const FinPartidaScript := preload("res://Base/fin_partida.gd")
+const MusicaMenu := preload("res://Pantallas/musica_menu.gd")
+var fin_partida: Node
 var diario: Node
 var tutorial: Node
 ## Para el tutorial: si el jugador ya usó la rueda del mouse y arrastró el mapa.
@@ -97,6 +101,7 @@ var _arrastrando := false
 var _pos_apretado := Vector2.ZERO
 
 func _ready() -> void:
+	MusicaMenu.detener(get_tree())  # la música de las pantallas termina al empezar la partida
 	_configurar_pantalla()
 
 	recursos = Recursos.new()
@@ -135,6 +140,14 @@ func _ready() -> void:
 	eventos = Eventos.new()
 	eventos.name = "Eventos"
 	eventos.diario = diario
+
+	fin_partida = FinPartidaScript.new()
+	fin_partida.name = "FinPartida"
+	fin_partida.hud = hud
+	fin_partida.diario = diario
+	fin_partida.recursos = recursos
+	fin_partida.tripulacion = tripulacion
+	add_child(fin_partida)
 	eventos.hud = hud
 	eventos.recursos = recursos
 	eventos.tripulacion = tripulacion

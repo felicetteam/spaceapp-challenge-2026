@@ -1120,7 +1120,9 @@ func decir(texto: String, segundos := 4.0) -> void:
 	_tween_dialogo.tween_interval(segundos)
 	_tween_dialogo.tween_property(_dialogo, "modulate:a", 0.0, 0.4)
 	_tween_dialogo.tween_callback(func(): _dialogo.visible = false)
-	var hud := get_tree().current_scene.get_node_or_null("HUD") if get_tree().current_scene != null else null
+	var hud: Node = null
+	if get_tree().current_scene != null:
+		hud = get_tree().current_scene.get_node_or_null("HUD")
 	if hud != null and hud.has_method("agregar_charla"):
 		hud.agregar_charla(obtener_nombre(), texto)
 

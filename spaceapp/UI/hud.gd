@@ -58,6 +58,8 @@ var _boton_pausa: Button
 var _boton_play: Button
 var _lbl_velocidad: Label
 var _boton_exploracion: Button
+## Botón de reportes pendientes (investigaciones completas sin responder el reporte).
+var _boton_reportes: Button
 # Historial de charlas entre astronautas (los últimos MAX_CHARLAS mensajes)
 const MAX_CHARLAS := 10
 var _panel_charlas: PanelContainer
@@ -207,6 +209,28 @@ func _crear_boton_exploracion() -> void:
 	_boton_exploracion.visible = false
 	_boton_exploracion.pressed.connect(func(): exploracion_pedida.emit())
 	add_child(_boton_exploracion)
+
+	# Arriba del de exploración: reportes por responder (abre el diario en esa investigación)
+	_boton_reportes = Button.new()
+	_boton_reportes.focus_mode = Control.FOCUS_NONE
+	_boton_reportes.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_boton_reportes.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_boton_reportes.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_boton_reportes.offset_right = -12
+	_boton_reportes.offset_bottom = -52
+	_boton_reportes.custom_minimum_size = Vector2(170, 34)
+	_boton_reportes.add_theme_font_size_override("font_size", 12)
+	var estilo_rep := _estilo_panel()
+	estilo_rep.border_color = Color(0.45, 1.0, 0.55)
+	estilo_rep.set_border_width_all(2)
+	for estado in ["normal", "hover", "pressed"]:
+		_boton_reportes.add_theme_stylebox_override(estado, estilo_rep)
+	_boton_reportes.tooltip_text = "Investigación completa: respondé su reporte en el diario"
+	_boton_reportes.visible = false
+	_boton_reportes.pressed.connect(func():
+		var pendientes: Array = diario.reportes_pendientes() if diario != null else []
+		abrir_info("diario", pendientes[0] if not pendientes.is_empty() else -1))
+	add_child(_boton_reportes)
 
 
 func mostrar_exploraciones_pendientes(cantidad: int) -> void:
@@ -374,7 +398,7 @@ func _crear_botones_debug() -> void:
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.offset_right = -12
-	panel.offset_bottom = -54
+	panel.offset_bottom = -96
 	add_child(panel)
 	var caja := _vbox(4)
 	panel.add_child(caja)
@@ -410,7 +434,7 @@ func _debug_avanzar() -> void:
 		agregar_alerta("[Debug] No hay ninguna investigación en curso", 0)
 		return
 	var m: Dictionary = diario.activa()
-	var completa: Dictionary = diario.avanzar(diario.PROGRESO_TOTAL * 0.25)
+	var completa: Dictionary = diario.avanzar(25.0)  # (el total de una investigación es 100)
 	if not completa.is_empty():
 		agregar_alerta("[Debug] ¡Investigación completa: %s!" % String(m["titulo"]), 0)
 	else:
@@ -455,13 +479,27 @@ func _cargar_textura(ruta: String) -> Texture2D:
 
 
 ## Abre la ventana de Información (carpetas Base y Diario). No pausa el juego.
-func abrir_info() -> void:
+## seccion "diario" abre directo el diario en la investigación seleccion.
+func abrir_info(seccion := "", seleccion := -1) -> void:
 	if _ventana_info != null and is_instance_valid(_ventana_info):
 		return
 	_ventana_info = VentanaInfo.new()
 	_ventana_info.diario = diario
+	_ventana_info.abrir_en = seccion
+	_ventana_info.seleccion_inicial = seleccion
 	_ventana_info.z_index = 40  # sobre el HUD, debajo del tutorial
 	add_child(_ventana_info)
+
+
+func _actualizar_boton_reportes() -> void:
+	if _boton_reportes == null or diario == null or not diario.has_method("reportes_pendientes"):
+		return
+	var n: int = diario.reportes_pendientes().size()
+	_boton_reportes.visible = n > 0
+	_boton_reportes.text = "Reporte pendiente" if n <= 1 else "Reportes pendientes (%d)" % n
+	# Si no hay exploración pendiente, baja al lugar de ese botón
+	_boton_reportes.offset_bottom = -52 if _boton_exploracion != null and _boton_exploracion.visible else -12
+	_boton_reportes.offset_top = _boton_reportes.offset_bottom - 34
 
 
 func cerrar_info() -> void:
@@ -510,6 +548,7 @@ func _icono(play: bool) -> ImageTexture:
 	return ImageTexture.create_from_image(img)
 
 func _process(_delta: float) -> void:
+	_actualizar_boton_reportes()
 	# El scroll de máquinas ocupa lo que haga falta, sin pasarse del borde de la pantalla
 	if _scroll_maquinas == null:
 		return

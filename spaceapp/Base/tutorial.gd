@@ -45,7 +45,7 @@ func iniciar() -> void:
 	_agregar_info("objetivo", "Objetivo del juego", "¡Tu misión en Marte!
 Explorá Marte, descubrí sus secretos y completá 4 investigaciones.
 Pero no te olvides de tu equipo: cuidá la base, mantené la energía y el oxígeno, ¡y protegé a todos de la radiación!
-¡Marte cuenta con vos, astronauta!s", null, false, Callable(), true)
+¡Marte cuenta con vos, astronauta!", null, false, Callable(), true)
 	_agregar_tarea("elegir", "Elegí un astronauta",
 		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También podés elegirlos con su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
 		func(): return _rect_astronauta(_primer_astronauta()),
