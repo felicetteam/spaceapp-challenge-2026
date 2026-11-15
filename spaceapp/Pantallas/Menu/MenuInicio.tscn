@@ -1,0 +1,76 @@
+[gd_scene format=3 uid="uid://c2gaxhuyll3lj"]
+
+[ext_resource type="Texture2D" uid="uid://dtv25latdax20" path="res://assets/img/Fondopng.png" id="1_ghm1e"]
+[ext_resource type="Texture2D" uid="uid://cqmc526wjynr3" path="res://assets/img/TituloConLogo.png" id="2_qrhxr"]
+[ext_resource type="FontFile" uid="uid://cutlb65ivra8j" path="res://assets/fonts/squares.ttf" id="4_ghm1e"]
+[ext_resource type="Texture2D" uid="uid://cap1j3mqr0bo3" path="res://assets/img/SpaceApp.png" id="4_ynx6h"]
+[ext_resource type="Script" path="res://Pantallas/Menu/menu_inicio.gd" id="5_menu"]
+
+[node name="Menu" type="Control" unique_id=1033095452]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("5_menu")
+
+[node name="Fondo" type="TextureRect" parent="." unique_id=695661678]
+layout_mode = 0
+offset_right = 1152.0
+offset_bottom = 648.0
+texture = ExtResource("1_ghm1e")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=1201911274]
+layout_mode = 0
+offset_right = 1152.0
+offset_bottom = 648.0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CenterContainer" unique_id=737769220]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HBoxContainer" type="HBoxContainer" parent="CenterContainer/VBoxContainer" unique_id=956265335]
+layout_mode = 2
+
+[node name="Titulo" type="TextureRect" parent="CenterContainer/VBoxContainer/HBoxContainer" unique_id=1133268817]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+texture = ExtResource("2_qrhxr")
+expand_mode = 3
+
+[node name="Espaciador" type="Control" parent="CenterContainer/VBoxContainer" unique_id=1141937501]
+custom_minimum_size = Vector2(0, 100)
+layout_mode = 2
+
+[node name="BotonJugar" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1944747087]
+custom_minimum_size = Vector2(200, 70)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_ghm1e")
+theme_override_font_sizes/font_size = 35
+text = "Jugar"
+
+[node name="BotonDiario" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1089282981]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_ghm1e")
+theme_override_font_sizes/font_size = 35
+text = "Ver Diario"
+
+[node name="BotonSalir" type="Button" parent="CenterContainer/VBoxContainer" unique_id=1423655317]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+theme_override_fonts/font = ExtResource("4_ghm1e")
+theme_override_font_sizes/font_size = 35
+text = "Salir"
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1858926698]
+layout_mode = 0
+offset_left = 1015.0
+offset_top = 577.0
+offset_right = 1134.0
+offset_bottom = 626.0
+texture = ExtResource("4_ynx6h")
+expand_mode = 3
