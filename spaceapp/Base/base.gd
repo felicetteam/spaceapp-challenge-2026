@@ -1,4 +1,5 @@
 extends Node2D
+const Idioma := preload("res://Base/idioma.gd")
 ## Escena principal: crea los recursos globales y la navegación, conecta el HUD y maneja
 ## la cámara y los clics del point and click.
 ##
@@ -101,7 +102,14 @@ var _arrastrando := false
 var _pos_apretado := Vector2.ZERO
 
 func _ready() -> void:
+	Idioma.iniciar()  # (si se abrió la base directo desde el editor)
 	MusicaMenu.detener(get_tree())  # la música de las pantallas termina al empezar la partida
+	MusicaMenu.precargar()  # (si se abrió la base directo desde el editor)
+	# La música del juego arranca recién cuando terminó de cargar todo (ver más abajo): si
+	# empieza mientras se arma el mapa, a veces se escucha entrecortada
+	var musica_juego := get_node_or_null("AudioStreamPlayer") as AudioStreamPlayer
+	if musica_juego != null:
+		musica_juego.stop()
 	_configurar_pantalla()
 
 	recursos = Recursos.new()
@@ -136,6 +144,8 @@ func _ready() -> void:
 	diario.name = "Diario"
 	add_child(diario)
 	hud.diario = diario
+	hud.escritorio = escritorio
+	hud.investigacion_pedida.connect(_investigacion_pedida)
 
 	eventos = Eventos.new()
 	eventos.name = "Eventos"
@@ -163,7 +173,7 @@ func _ready() -> void:
 	tutorial.eventos = eventos
 	add_child(tutorial)
 	eventos.tutorial = tutorial  # no salen eventos mientras el tutorial explica algo
-	_mostrar_ajustes("Ajustes cargados")
+	_mostrar_ajustes(Idioma.t("Ajustes cargados"))
 	for astro in tripulacion:
 		astro.controlado_por_jugador = false
 	hud.marcar_activo(null)
@@ -175,6 +185,8 @@ func _ready() -> void:
 	for _i in 3:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
+	if musica_juego != null and musica_juego.stream != null:
+		musica_juego.play()
 	tutorial.iniciar()
 
 ## Los astronautas elegidos en la pantalla de selección reemplazan a los de la escena
@@ -566,7 +578,7 @@ func _mostrar_ajustes(titulo: String, en_pantalla := false) -> void:
 	var resumen := Ajustes.actual().resumen()
 	print("%s (Base/ajustes.gd): %s" % [titulo, resumen])
 	if en_pantalla:
-		hud.agregar_alerta("%s: %s" % [titulo, resumen], 0)
+		hud.agregar_alerta(Idioma.t("%s: %s") % [titulo, resumen], 0)
 
 ## Deja de seguir y fija la cámara donde está mirando ahora.
 func _soltar_camara() -> void:
@@ -593,10 +605,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		# F6: vuelve a aplicar Base/ajustes.gd sin reiniciar el juego
 		if event.keycode == KEY_F6:
 			Ajustes.recargar()
-			_mostrar_ajustes("Ajustes recargados", true)
+			_mostrar_ajustes(Idioma.t("Ajustes recargados"), true)
 			return
 		if event.keycode == KEY_ESCAPE:
 			_deseleccionar()
+			return
+		# Espacio: pausa / reanuda
+		if event.keycode == KEY_SPACE:
+			pausa_jugador = not pausa_jugador
+			get_viewport().set_input_as_handled()
 			return
 		if event.keycode >= KEY_1 and event.keycode <= KEY_9:
 			_seleccionar_indice(event.keycode - KEY_1)
@@ -678,7 +695,7 @@ func _clic_izquierdo(punto: Vector2) -> void:
 	var cama := _en_grupo("camas", punto) as CamaHospital
 	if cama != null:
 		if cama.solo_desmayados:
-			activo.mostrar_cartel("Solo para inconscientes")
+			activo.mostrar_cartel(Idioma.t("Solo para inconscientes"))
 		else:
 			activo.acostarse_en(cama)  # en medio de un trabajo de evento es una pausa
 		return
@@ -686,13 +703,26 @@ func _clic_izquierdo(punto: Vector2) -> void:
 	#    no lo saca de lo que hace: solo otra máquina, el comedor o una cama pueden interrumpirla.
 	#    (Clic derecho o el teclado sí cancelan la tarea.)
 	if activo.esta_en_tarea():
-		activo.mostrar_cartel("Ocupado: clic en otra máquina o clic derecho")
+		activo.mostrar_cartel(Idioma.t("Ocupado: clic en otra máquina o clic derecho"))
 		return
 	# Durmiendo: caminar no lo levanta (solo una máquina, un mueble o clic derecho)
 	if activo.en_cama:
-		activo.mostrar_cartel("Durmiendo: clic en una máquina o mueble")
+		activo.mostrar_cartel(Idioma.t("Durmiendo: clic en una máquina o mueble"))
 		return
 	activo.ir_a(punto)
+
+## Botón "Investigación pendiente": el seleccionado va al escritorio; si no hay nadie
+## elegido, la cámara muestra el escritorio y avisa qué hacer.
+func _investigacion_pedida() -> void:
+	if escritorio == null:
+		return
+	var activo := _activo()
+	if activo != null:
+		activo.trabajar_en(escritorio)
+		return
+	_enfocar(escritorio)
+	hud.agregar_alerta(Idioma.t("Elegí un astronauta y tocá el escritorio para investigar"), 0)
+
 
 func _activo() -> Personaje:
 	if indice_activo < 0 or indice_activo >= tripulacion.size():
@@ -732,7 +762,7 @@ func _mandar_a_trabajar(m: Maquina) -> void:
 	if activo != null:
 		activo.trabajar_en(m)
 	else:
-		hud.agregar_alerta("Seleccioná un astronauta primero", 0)
+		hud.agregar_alerta(Idioma.t("Seleccioná un astronauta primero"), 0)
 
 # --- Selección ---------------------------------------------------------------
 
@@ -770,7 +800,7 @@ func _ciclar_maquina(paso: int) -> void:
 	lista.sort_custom(func(a, b): return a.mantenimiento < b.mantenimiento)
 	if lista.is_empty():
 		_idx_maquina_foco = -1
-		hud.agregar_alerta("Ninguna máquina necesita atención", 0)
+		hud.agregar_alerta(Idioma.t("Ninguna máquina necesita atención"), 0)
 		return
 	_idx_maquina_foco += paso
 	if _idx_maquina_foco >= lista.size():
@@ -782,7 +812,7 @@ func _ciclar_maquina(paso: int) -> void:
 		return
 	var m := lista[_idx_maquina_foco]
 	_enfocar(m)
-	hud.agregar_alerta("%s: %d%% (%d/%d)" % [m.nombre_maquina, roundi(m.mantenimiento),
+	hud.agregar_alerta(Idioma.t("%s: %d%% (%d/%d)") % [Idioma.t(m.nombre_maquina), roundi(m.mantenimiento),
 			_idx_maquina_foco + 1, lista.size()], 0, m)
 
 ## Cámara viendo todo el mapa (también la usa el tutorial al terminar).
@@ -804,7 +834,7 @@ func _seleccionar_indice(idx: int) -> void:
 		_deseleccionar()
 		return
 	if tripulacion[idx].en_evento and tripulacion[idx].evento_fuera:
-		hud.agregar_alerta("%s está fuera de la base (%s)" % [tripulacion[idx].obtener_nombre(),
+		hud.agregar_alerta(Idioma.t("%s está fuera de la base (%s)") % [tripulacion[idx].obtener_nombre(),
 				tripulacion[idx].motivo_evento], 0)
 		return
 	indice_activo = idx

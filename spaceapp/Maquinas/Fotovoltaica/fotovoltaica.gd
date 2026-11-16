@@ -26,8 +26,8 @@ func generacion_energia() -> float:
 
 func obtener_estado() -> String:
 	var estado := super.obtener_estado()
-	if estado == "Operativa" and recursos() != null:
-		return "Generando %d%%" % roundi(recursos().factor_solar() * 100.0) if recursos().es_de_dia() else "Noche"
+	if estado == Idioma.t("Operativa") and recursos() != null:
+		return Idioma.t("Generando %d%%") % roundi(recursos().factor_solar() * 100.0) if recursos().es_de_dia() else Idioma.t("Noche")
 	return estado
 
 

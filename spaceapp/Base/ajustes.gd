@@ -16,9 +16,9 @@ extends Resource
 
 @export_group("Recursos globales")
 ## Consumo de energía de la base, las máquinas, la cama de hospital y la roomba.
-@export var consumo_energia := 0.7
+@export var consumo_energia := 0.5
 ## Energía que generan los paneles solares.
-@export var generacion_energia := 1.0
+@export var generacion_energia := 1.2
 ## Velocidad con la que baja el oxígeno (cuando sigue a la energía o sin máquina de O2).
 @export var caida_oxigeno := 1.0
 ## Velocidad con la que sube la radiación.

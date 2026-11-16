@@ -1,5 +1,6 @@
 class_name Eventos
 extends Node
+const Idioma := preload("res://Base/idioma.gd")
 ## Eventos críticos: cada tanto pausa el juego y muestra un aviso con dos decisiones.
 ## Las dos tienen un costo. Se leen de res://Eventos/eventos_criticos.json.
 ##
@@ -155,6 +156,8 @@ func cargar() -> void:
 	if datos == null:
 		push_error("%s tiene un error de formato JSON" % RUTA)
 		return
+	# Textos que ve el jugador, en el idioma elegido (ver Base/idioma.gd)
+	Idioma.traducir_datos(datos, ["titulo", "descripcion", "consejo", "texto", "motivo"])
 	var lista = datos.get("eventos", []) if datos is Dictionary else datos
 	if not (lista is Array):
 		push_error("%s: se esperaba una lista de eventos" % RUTA)
@@ -298,7 +301,7 @@ func lanzar(ev: Dictionary) -> void:
 				ya = true
 		if not ya:
 			_activos.append({"ev": ev, "t": dur})
-		iniciales.append("Dura %d:%02d" % [int(dur) / 60, int(dur) % 60])
+		iniciales.append(Idioma.t("Dura %d:%02d") % [int(dur) / 60, int(dur) % 60])
 	get_tree().paused = true
 	evento_iniciado.emit(ev)
 	# Una opción que necesita elegir un astronauta no se puede tomar si no hay nadie disponible
@@ -327,11 +330,11 @@ func _agregar_exploracion(ev: Dictionary) -> void:
 		ev = ev.duplicate(true)
 		ev["mision"] = String(m["id"])
 		ev["titulo"] = String(m["titulo"])
-		ev["descripcion"] = "Misión %d de %d. %s" % [n, total, String(ev.get("descripcion", ""))]
+		ev["descripcion"] = Idioma.t("Misión %d de %d. %s") % [n, total, String(ev.get("descripcion", ""))]
 	_exploraciones.append(ev)
 	hud.mostrar_exploraciones_pendientes(_exploraciones.size())
-	hud.agregar_alerta("%s: tocá el botón de abajo a la derecha para elegir quién sale" \
-			% String(ev.get("titulo", "Nueva exploración")), 1, _rover())
+	hud.agregar_alerta(Idioma.t("%s: tocá el botón de abajo a la derecha para elegir quién sale") \
+			% String(ev.get("titulo", Idioma.t("Nueva exploración"))), 1, _rover())
 	evento_iniciado.emit(ev)  # (el tutorial la explica la primera vez)
 
 
@@ -351,7 +354,7 @@ func _exploracion_terminada(mision: String) -> void:
 	var m: Dictionary = diario.desbloquear(mision)
 	recursos.investigaciones_desbloqueadas = diario.cantidad_desbloqueadas()
 	if not m.is_empty():
-		hud.agregar_alerta("Nueva investigación en el diario: %s" % String(m["titulo"]), 0)
+		hud.agregar_alerta(Idioma.t("Nueva investigación en el diario: %s") % String(m["titulo"]), 0)
 	if not _plantilla_exploracion.is_empty():
 		_agregar_exploracion(_plantilla_exploracion)
 
@@ -368,16 +371,16 @@ func _motivo_no_explora(p: Personaje, ev: Dictionary) -> String:
 	var salud_min := float(ev.get("salud_minima", SALUD_MINIMA_EXPLORACION))
 	var costo := float(ev.get("costo_energia", COSTO_ENERGIA_EXPLORACION))
 	if p.en_evento:
-		return "está explorando" if p.evento_fuera else "está ocupado"
+		return Idioma.t("está explorando") if p.evento_fuera else Idioma.t("está ocupado")
 	if p.desmayado or p.siendo_llevado:
-		return "está inconsciente"
+		return Idioma.t("está inconsciente")
 	if p.yendo_a_evento:
-		return "está yendo a otra tarea"
+		return Idioma.t("está yendo a otra tarea")
 	if p.salud < salud_min:
-		return "salud %d%% (necesita %d%%)" % [roundi(p.salud), roundi(salud_min)]
+		return Idioma.t("salud %d%% (necesita %d%%)") % [roundi(p.salud), roundi(salud_min)]
 	var energia := 100.0 - p.sueno
 	if energia < costo:
-		return "energía %d%% (necesita %d%%)" % [roundi(energia), roundi(costo)]
+		return Idioma.t("energía %d%% (necesita %d%%)") % [roundi(energia), roundi(costo)]
 	return ""
 
 
@@ -390,18 +393,18 @@ func abrir_exploracion() -> void:
 	var aviso := ""
 	var rover := _rover()
 	if _abierto:
-		aviso = "Hay otro evento en curso: esperá a que termine."
+		aviso = Idioma.t("Hay otro evento en curso: esperá a que termine.")
 	elif rover != null and rover.en_exploracion:
-		aviso = "El rover ya está explorando: las exploraciones se hacen de a una."
+		aviso = Idioma.t("El rover ya está explorando: las exploraciones se hacen de a una.")
 	elif rover != null and rover.averiada:
-		aviso = "El rover está roto: reparalo antes de salir."
+		aviso = Idioma.t("El rover está roto: reparalo antes de salir.")
 	var candidatos: Array[Dictionary] = []
 	for p in tripulacion:
 		if is_instance_valid(p):
 			candidatos.append({"p": p, "motivo": aviso if aviso != "" else _motivo_no_explora(p, ev)})
 	var pausa_previa := get_tree().paused
 	get_tree().paused = true
-	var texto := "%s\nCuesta %d%% de energía: el astronauta vuelve cansado. Necesita al menos %d%% de salud." % [
+	var texto := Idioma.t("%s\nCuesta %d%% de energía: el astronauta vuelve cansado. Necesita al menos %d%% de salud.") % [
 			String(ev.get("descripcion", "")), roundi(costo),
 			roundi(float(ev.get("salud_minima", SALUD_MINIMA_EXPLORACION)))]
 	var al_elegir := func(p: Personaje):
@@ -409,7 +412,7 @@ func abrir_exploracion() -> void:
 		_salir_a_explorar(ev, p)
 	var al_salir := func():
 		get_tree().paused = pausa_previa
-	hud.mostrar_exploracion(String(ev.get("titulo", "Exploración")), texto, candidatos, aviso,
+	hud.mostrar_exploracion(String(ev.get("titulo", Idioma.t("Exploración"))), texto, candidatos, aviso,
 			al_elegir, al_salir)
 
 
@@ -457,13 +460,13 @@ func _iniciar_reparacion(ev: Dictionary) -> String:
 	var nombres: PackedStringArray = []
 	for m in maquinas:
 		m.mantenimiento = minf(m.mantenimiento, m.umbral_critico * 0.8)
-		nombres.append(m.nombre_maquina)
+		nombres.append(Idioma.t(m.nombre_maquina))
 	for r in _reparaciones:
 		if r["ev"] == ev:
 			r["maquinas"] = maquinas
 			return ""
 	_reparaciones.append({"ev": ev, "maquinas": maquinas})
-	return "%s en estado crítico: hay que repararlo hasta verde" % ", ".join(nombres)
+	return Idioma.t("%s en estado crítico: hay que repararlo hasta verde") % ", ".join(nombres)
 
 
 func _actualizar_reparaciones() -> void:
@@ -477,14 +480,14 @@ func _actualizar_reparaciones() -> void:
 					and (peor == null or m.mantenimiento < peor.mantenimiento):
 				peor = m
 		if peor != null:
-			var equipo := " · ¡Trabajo en Equipo!" if peor.en_equipo() else ""
-			hud.mostrar_banner(id, "%s · reparar %s: %d%% (verde desde %d%%)%s" % [
-					String(ev.get("titulo", "Evento")), peor.nombre_maquina, roundi(peor.mantenimiento),
+			var equipo := Idioma.t(" · ¡Trabajo en Equipo!") if peor.en_equipo() else ""
+			hud.mostrar_banner(id, Idioma.t("%s · reparar %s: %d%% (verde desde %d%%)%s") % [
+					String(ev.get("titulo", Idioma.t("Evento"))), Idioma.t(peor.nombre_maquina), roundi(peor.mantenimiento),
 					roundi(peor.umbral_borde), equipo])
 			continue
 		_reparaciones.remove_at(i)
 		hud.quitar_banner(id)
-		hud.agregar_alerta("Solucionado: %s" % String(ev.get("titulo", "evento")), 0)
+		hud.agregar_alerta(Idioma.t("Solucionado: %s") % String(ev.get("titulo", "evento")), 0)
 
 
 ## Opción "reparar": manda al elegido (o al disponible más cercano) a reparar de verdad.
@@ -499,8 +502,8 @@ func _mandar_a_reparar(ev: Dictionary, clave: String) -> void:
 			p = libres[0]
 	if p != null and not maquinas.is_empty():
 		p.trabajar_en(maquinas[0])
-		hud.agregar_alerta("%s va a reparar %s (mandá a más astronautas para ir más rápido)" % [
-				p.obtener_nombre(), maquinas[0].nombre_maquina], 0, maquinas[0])
+		hud.agregar_alerta(Idioma.t("%s va a reparar %s (mandá a más astronautas para ir más rápido)") % [
+				p.obtener_nombre(), Idioma.t(maquinas[0].nombre_maquina)], 0, maquinas[0])
 	_aplicar_opcion(ev, clave)
 
 
@@ -536,8 +539,8 @@ func _resolver(ev: Dictionary, clave: String) -> void:
 	for p in en_camino:
 		quienes.append(p.obtener_nombre())
 	var donde := _nombre_estructura(_mas_cercana(estructuras, en_camino[0].pies()))
-	hud.agregar_alerta("%s va%s a %s: %s" % [", ".join(quienes), "n" if en_camino.size() > 1 else "",
-			donde, motivo], 0, en_camino[0])
+	var plantilla := Idioma.t("%s van a %s: %s") if en_camino.size() > 1 else Idioma.t("%s va a %s: %s")
+	hud.agregar_alerta(plantilla % [", ".join(quienes), donde, motivo], 0, en_camino[0])
 
 
 ## Aplica la decisión cuando todos llegaron (o no pueden llegar, o pasó la espera máxima).
@@ -605,8 +608,8 @@ func _iniciar_trabajo(ev: Dictionary, clave: String, caminantes: Array[Personaje
 	_elegido = null
 	_fijados.clear()
 	_abierto = false
-	hud.agregar_alerta("%s: trabajando en %s (más rápido si van más astronautas)" % [
-			String(ev.get("titulo", "Evento")), _nombre_estructura(estructura)], 0, estructura)
+	hud.agregar_alerta(Idioma.t("%s: trabajando en %s (más rápido si van más astronautas)") % [
+			String(ev.get("titulo", Idioma.t("Evento"))), _nombre_estructura(estructura)], 0, estructura)
 	if not _cola.is_empty():
 		lanzar(_cola.pop_front())
 
@@ -631,7 +634,7 @@ func _actualizar_trabajos(delta: float) -> void:
 		var n := activos.size()
 		if n > tb["n"] and n > 1:
 			for p in activos:
-				p.mostrar_cartel("¡Trabajo en Equipo!")
+				p.mostrar_cartel(Idioma.t("¡Trabajo en Equipo!"))
 		tb["n"] = n
 		var ritmo: float = 0.0 if n == 0 else 1.0 + Ajustes.actual().bonus_equipo * (n - 1)
 		tb["restante"] -= delta * ritmo
@@ -641,11 +644,11 @@ func _actualizar_trabajos(delta: float) -> void:
 				nadie = false
 		if tb["restante"] > 0.0 and not nadie:
 			var pct := int(100.0 * (1.0 - tb["restante"] / tb["total"]))
-			var texto := "%s · trabajo %d%%" % [String(ev.get("titulo", "Evento")), pct]
+			var texto := Idioma.t("%s · trabajo %d%%") % [String(ev.get("titulo", Idioma.t("Evento"))), pct]
 			if n > 1:
-				texto += " · ¡Trabajo en Equipo! x%s" % String.num(ritmo, 1)
+				texto += Idioma.t(" · ¡Trabajo en Equipo! x%s") % String.num(ritmo, 1)
 			elif n == 0:
-				texto += " · en pausa"
+				texto += Idioma.t(" · en pausa")
 			hud.mostrar_banner(id, texto)
 			continue
 		# Terminado: se liberan los astronautas y recién ahora pasa lo que decía la opción
@@ -654,7 +657,7 @@ func _actualizar_trabajos(delta: float) -> void:
 		for p in tb["caminantes"]:
 			if is_instance_valid(p) and p.en_evento and not p.evento_fuera:
 				p.terminar_evento()
-				p.mostrar_cartel("¡Listo!")
+				p.mostrar_cartel(Idioma.t("¡Listo!"))
 		_elegido = tb["elegido"] if is_instance_valid(tb["elegido"]) else null
 		_fijados = tb["fijados"]
 		_estructura_actual = estructura if is_instance_valid(estructura) else null
@@ -690,8 +693,8 @@ func _aplicar_opcion(ev: Dictionary, clave: String, cerrar := true) -> void:
 		get_tree().paused = false
 		_abierto = false
 	evento_resuelto.emit(ev, clave)
-	var titulo: String = ev.get("titulo", "Evento")
-	hud.agregar_alerta("%s: %s" % [titulo, " · ".join(textos) if not textos.is_empty() else "sin efectos"], 1)
+	var titulo: String = ev.get("titulo", Idioma.t("Evento"))
+	hud.agregar_alerta(Idioma.t("%s: %s") % [titulo, " · ".join(textos) if not textos.is_empty() else Idioma.t("sin efectos")], 1)
 	if cerrar and not _cola.is_empty():
 		lanzar(_cola.pop_front())
 
@@ -720,16 +723,16 @@ func _describir_opcion(ev: Dictionary, clave: String) -> String:
 	var texto := describir(ev.get(clave, {}))
 	if bool(ev.get(clave, {}).get("reparar", false)):
 		var maquinas := _maquinas_a_reparar(ev)
-		var nombre := maquinas[0].nombre_maquina if not maquinas.is_empty() else String(ev.get("reparar", ""))
-		var r := "Reparar %s hasta verde (más rápido en equipo)" % nombre
+		var nombre := Idioma.t(maquinas[0].nombre_maquina) if not maquinas.is_empty() else String(ev.get("reparar", ""))
+		var r := Idioma.t("Reparar %s hasta verde (más rápido en equipo)") % nombre
 		return r + (" · " + texto if texto != "" else "")
 	var nombre := _estructura_de(ev, clave)
 	if nombre != "":
 		var lista := _buscar_estructuras(nombre)
 		var donde := _nombre_estructura(lista[0]) if not lista.is_empty() else nombre
-		texto = "Ir a %s · %s" % [donde, texto] if texto != "" else "Ir a %s" % donde
+		texto = Idioma.t("Ir a %s · %s") % [donde, texto] if texto != "" else Idioma.t("Ir a %s") % donde
 		if _necesita_trabajo(ev.get(clave, {})):
-			texto += " · Trabajo %d s (más rápido en equipo)" % int(_segundos_de_trabajo(ev, clave))
+			texto += Idioma.t(" · Trabajo %d s (más rápido en equipo)") % int(_segundos_de_trabajo(ev, clave))
 	return texto
 
 
@@ -764,8 +767,8 @@ func _mas_cercana(estructuras: Array[Node2D], desde: Vector2) -> Node2D:
 
 func _nombre_estructura(n: Node2D) -> String:
 	if n is Maquina and n.nombre_maquina != "":
-		return n.nombre_maquina
-	return String(n.name)
+		return Idioma.t(n.nombre_maquina)
+	return Idioma.t(String(n.name))
 
 
 ## Puntos alrededor de la estructura donde puede pararse el astronauta.
@@ -814,7 +817,7 @@ func _caminantes(opcion: Dictionary, estructuras: Array[Node2D]) -> Array[Person
 	return lista
 
 
-## Texto corto de los efectos de una opción, para el botón ("+25 Energía · −30 Oxígeno").
+## Texto corto de los efectos de una opción, para el botón ("+25 Energía · -30 Oxígeno").
 func describir(opcion: Dictionary) -> String:
 	var partes: PackedStringArray = []
 	var solo_recursos := bool(opcion.get("reparar", false))
@@ -886,29 +889,29 @@ func _describir_efecto(efecto: Dictionary, signo: int) -> String:
 	var cantidad := float(efecto.get("cantidad", 0)) * signo
 	if clave == "desbloqueo":
 		var n := maxi(1, int(efecto.get("cantidad", 1)))
-		return "Desbloquea %s" % ("una investigación" if n == 1 else "%d investigaciones" % n)
+		return Idioma.t("Desbloquea %s") % (Idioma.t("una investigación") if n == 1 else Idioma.t("%d investigaciones") % n)
 	if clave == "posponer":
 		var s := int(efecto.get("segundos", 300))
-		return "Vuelve en %d:%02d" % [s / 60, s % 60]
+		return Idioma.t("Vuelve en %d:%02d") % [s / 60, s % 60]
 	if clave == "apagar":
 		var s := int(efecto.get("segundos", 60))
-		return "%s apagado %d:%02d (sin reparar)" % [detalle.capitalize() if detalle != "" else "Todo", s / 60, s % 60]
+		return Idioma.t("%s apagado %d:%02d (sin reparar)") % [detalle.capitalize() if detalle != "" else Idioma.t("Todo"), s / 60, s % 60]
 	if NOMBRES_RECURSO.has(clave):
-		var nombre: String = NOMBRES_RECURSO[clave]
+		var nombre: String = Idioma.t(NOMBRES_RECURSO[clave])
 		if detalle != "":
-			nombre += " (%s)" % ("un astronauta" if _normalizar(detalle) == "cualquiera" else detalle)
-		return "%s%d %s" % ["+" if cantidad >= 0.0 else "−", roundi(absf(cantidad)), nombre]
+			nombre += Idioma.t(" (%s)") % (Idioma.t("un astronauta") if _normalizar(detalle) == "cualquiera" else detalle)
+		return Idioma.t("%s%d %s") % ["+" if cantidad >= 0.0 else "-", roundi(absf(cantidad)), nombre]
 	# Astronauta
 	var quien: String = partes[0]
 	if clave == "cualquiera":
-		quien = "un astronauta al azar"
+		quien = Idioma.t("un astronauta al azar")
 	elif clave == "elegir":
-		quien = "el astronauta que elijas"
+		quien = Idioma.t("el astronauta que elijas")
 	if signo > 0:
-		return "%s se recupera" % quien
+		return Idioma.t("%s se recupera") % quien
 	var dur := int(efecto.get("duracion", 0))
-	var modo := "fuera de la base" if String(efecto.get("modo", "fuera")) == "fuera" else "ocupado"
-	return "%s %s %d:%02d" % [quien, modo, dur / 60, dur % 60]
+	var modo := Idioma.t("fuera de la base") if String(efecto.get("modo", "fuera")) == "fuera" else Idioma.t("ocupado")
+	return Idioma.t("%s %s %d:%02d") % [quien, modo, dur / 60, dur % 60]
 
 
 ## Aplica un efecto. signo: +1 gana, -1 pierde. Devuelve el texto de lo que pasó.
@@ -968,7 +971,7 @@ func _aplicar_astronauta(nombre: String, efecto: Dictionary, signo: int) -> Stri
 		p.hambre = 0.0
 		p.sueno = 0.0
 		p.dano_ambiental = 0.0
-		return "%s se recupera" % p.obtener_nombre()
+		return Idioma.t("%s se recupera") % p.obtener_nombre()
 	var dur := float(efecto.get("duracion", 60))
 	var fuera := String(efecto.get("modo", "fuera")) == "fuera"
 	var motivo := String(efecto.get("motivo", "evento"))
@@ -987,7 +990,7 @@ func _aplicar_astronauta(nombre: String, efecto: Dictionary, signo: int) -> Stri
 	_retirados.append(entrada)
 	astronauta_retirado.emit(p)
 	var d := int(dur)
-	return "%s %s (%s) %d:%02d" % [p.obtener_nombre(), "fuera de la base" if fuera else "ocupado",
+	return Idioma.t("%s %s (%s) %d:%02d") % [p.obtener_nombre(), Idioma.t("fuera de la base") if fuera else Idioma.t("ocupado"),
 			motivo, d / 60, d % 60]
 
 
@@ -1013,10 +1016,10 @@ func _actualizar_activos(delta: float) -> void:
 		if a["t"] <= 0.0:
 			_activos.remove_at(i)
 			hud.quitar_banner(id)
-			hud.agregar_alerta("Terminó: %s" % String(ev.get("titulo", "evento")), 0)
+			hud.agregar_alerta(Idioma.t("Terminó: %s") % String(ev.get("titulo", "evento")), 0)
 			continue
 		var t := int(ceilf(a["t"]))
-		hud.mostrar_banner(id, "%s · quedan %d:%02d" % [String(ev.get("titulo", "Evento")), t / 60, t % 60])
+		hud.mostrar_banner(id, Idioma.t("%s · quedan %d:%02d") % [String(ev.get("titulo", Idioma.t("Evento"))), t / 60, t % 60])
 
 
 func _actualizar_retirados(delta: float) -> void:
@@ -1046,14 +1049,14 @@ func _actualizar_retirados(delta: float) -> void:
 					_rovers_volviendo -= 1
 					p.terminar_evento(rover.punto_de_bajada())
 					_cansar(p, cansancio)
-					hud.agregar_alerta("%s volvió de explorar con el rover%s" % [p.obtener_nombre(),
-							" (cansado)" if cansancio > 0.0 else ""], 0, p)
+					hud.agregar_alerta(Idioma.t("%s volvió de explorar con el rover%s") % [p.obtener_nombre(),
+							Idioma.t(" (cansado)") if cansancio > 0.0 else ""], 0, p)
 					_exploracion_terminada(mision))
 				continue
 			p.terminar_evento()
 			_cansar(p, float(r.get("cansancio", 0.0)))
 			_exploracion_terminada(String(r.get("mision", "")))
-			hud.agregar_alerta("%s volvió y está disponible" % p.obtener_nombre(), 0, p)
+			hud.agregar_alerta(Idioma.t("%s volvió y está disponible") % p.obtener_nombre(), 0, p)
 
 
 ## Al volver de explorar pierde la energía que costó la exploración.

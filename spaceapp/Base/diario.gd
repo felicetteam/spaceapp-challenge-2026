@@ -16,6 +16,7 @@ signal cambio
 
 const RUTA := "res://Base/investigaciones.json"
 const DiarioGlobal := preload("res://Base/diario_global.gd")
+const Idioma := preload("res://Base/idioma.gd")
 const MISIONES_POR_PARTIDA := 4
 ## Progreso que hay que juntar en el escritorio para completar una investigación
 ## (el escritorio suma progreso_por_segundo por segundo de trabajo).
@@ -44,6 +45,7 @@ func _elegir_misiones() -> void:
 		push_warning("No existe %s: el diario queda vacío" % RUTA)
 		return
 	var datos = JSON.parse_string(FileAccess.get_file_as_string(RUTA))
+	Idioma.traducir_datos(datos, ["titulo", "texto", "pregunta", "opciones"])  # en el idioma elegido
 	if not (datos is Dictionary) or not (datos.get("investigaciones") is Array):
 		push_error("%s tiene un error de formato" % RUTA)
 		return

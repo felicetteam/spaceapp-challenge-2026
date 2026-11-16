@@ -1,4 +1,5 @@
 extends Control
+const Idioma := preload("res://Base/idioma.gd")
 ## Pantalla de selección de tripulación (entre el menú de inicio y el juego).
 ## - Arriba, los 4 astronautas con sus bonos y penalidades (de Personaje/afinidades.gd).
 ##   Clic en uno lo pone en el primer lugar libre de abajo; clic de nuevo lo saca.
@@ -26,6 +27,7 @@ var _t := 0.0
 
 
 func _ready() -> void:
+	Idioma.iniciar()
 	MusicaMenu.sonar(get_tree())  # la misma música del menú, sin cortarse
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for _i in LUGARES:
@@ -44,7 +46,7 @@ func _ready() -> void:
 	add_child(raiz)
 
 	var titulo := Label.new()
-	titulo.text = "Elegí tres astronautas para la misión"
+	titulo.text = Idioma.t("Elegí tres astronautas para la misión")
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	titulo.add_theme_font_override("font", FUENTE_TITULO)
 	titulo.add_theme_font_size_override("font_size", 30)
@@ -60,7 +62,7 @@ func _ready() -> void:
 	for c in ORDEN:
 		fila.add_child(_crear_cuadro(c))
 
-	var sub := _label("Tu tripulación", 18, Color.WHITE)
+	var sub := _label(Idioma.t("Tu tripulación"), 18, Color.WHITE)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.add_theme_font_override("font", FUENTE_NOMBRE)
 	sub.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -83,13 +85,13 @@ func _ready() -> void:
 	var botones := HBoxContainer.new()
 	botones.add_theme_constant_override("separation", 16)
 	raiz.add_child(botones)
-	var volver := _boton_grande("Volver al menú")
+	var volver := _boton_grande(Idioma.t("Volver al menú"))
 	volver.pressed.connect(func(): get_tree().change_scene_to_file(ESCENA_MENU))
 	botones.add_child(volver)
 	var relleno := Control.new()
 	relleno.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	botones.add_child(relleno)
-	_boton_empezar = _boton_grande("Empezar partida")
+	_boton_empezar = _boton_grande(Idioma.t("Empezar partida"))
 	_boton_empezar.pressed.connect(_empezar)
 	botones.add_child(_boton_empezar)
 
@@ -132,13 +134,13 @@ func _crear_cuadro(c: int) -> Control:
 	vbox.add_child(nombre)
 	var info := _describir(String(Personaje.NOMBRES[c]))
 	if info["bonos"].is_empty() and info["penalidades"].is_empty():
-		vbox.add_child(_parrafo("Estadísticamente neutral: sin bonos ni penalidades.", Color(0.85, 0.87, 0.92)))
+		vbox.add_child(_parrafo(Idioma.t("Estadísticamente neutral: sin bonos ni penalidades."), Color(0.85, 0.87, 0.92)))
 	else:
-		vbox.add_child(_parrafo("Bonos", Color(0.55, 1.0, 0.6), 13))
-		vbox.add_child(_parrafo("\n".join(info["bonos"]) if not info["bonos"].is_empty() else "Ninguno",
+		vbox.add_child(_parrafo(Idioma.t("Bonos"), Color(0.55, 1.0, 0.6), 13))
+		vbox.add_child(_parrafo("\n".join(info["bonos"]) if not info["bonos"].is_empty() else Idioma.t("Ninguno"),
 				Color(0.8, 1.0, 0.82)))
-		vbox.add_child(_parrafo("Penalidades", Color(1.0, 0.55, 0.5), 13))
-		vbox.add_child(_parrafo("\n".join(info["penalidades"]) if not info["penalidades"].is_empty() else "Ninguna",
+		vbox.add_child(_parrafo(Idioma.t("Penalidades"), Color(1.0, 0.55, 0.5), 13))
+		vbox.add_child(_parrafo("\n".join(info["penalidades"]) if not info["penalidades"].is_empty() else Idioma.t("Ninguna"),
 				Color(1.0, 0.8, 0.78)))
 	_cuadros[c] = {"panel": boton, "estilo": estilo}
 	return boton
@@ -151,7 +153,7 @@ func _crear_lugar(i: int) -> Control:
 	boton.custom_minimum_size = Vector2(150, 120)
 	for estado in ["normal", "hover", "pressed", "focus", "disabled"]:
 		boton.add_theme_stylebox_override(estado, estilo)
-	boton.tooltip_text = "Clic para sacarlo de la tripulación"
+	boton.tooltip_text = Idioma.t("Clic para sacarlo de la tripulación")
 	boton.pressed.connect(_tocar_lugar.bind(i))
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -213,10 +215,10 @@ func _actualizar() -> void:
 		else:
 			img.texture = null
 			img.visible = false  # vacío: el texto queda centrado, sin el hueco de la cabeza
-			lbl.text = "Lugar %d\n(vacío)" % (i + 1)
+			lbl.text = Idioma.t("Lugar %d\n(vacío)") % (i + 1)
 			e.border_color = COLOR_BORDE
 	_boton_empezar.disabled = llenos < LUGARES
-	_boton_empezar.tooltip_text = "" if llenos == LUGARES else "Elegí 3 astronautas para empezar"
+	_boton_empezar.tooltip_text = "" if llenos == LUGARES else Idioma.t("Elegí 3 astronautas para empezar")
 
 
 func _empezar() -> void:

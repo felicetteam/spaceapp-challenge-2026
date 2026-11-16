@@ -1,5 +1,6 @@
 class_name Tutorial
 extends Node
+const Idioma := preload("res://Base/idioma.gd")
 ## Tutorial: explica controles y mecánicas. Se activa con Ajustes.tutorial_activado.
 ## Cada paso sale una sola vez por partida. Hay tres tipos de paso:
 ## - "info": ventana que pausa el juego y se cierra con "Siguiente" (puede destacar algo del
@@ -42,42 +43,42 @@ func iniciar() -> void:
 		return
 	eventos.evento_iniciado.connect(_al_iniciar_evento)
 	_intro = true
-	_agregar_info("objetivo", "Objetivo del juego", "¡Tu misión en Marte!
+	_agregar_info("objetivo", Idioma.t("Objetivo del juego"), "¡Tu misión en Marte!
 Explorá Marte, descubrí sus secretos y completá 4 investigaciones.
 Pero no te olvides de tu equipo: cuidá la base, mantené la energía y el oxígeno, ¡y protegé a todos de la radiación!
 ¡Marte cuenta con vos, astronauta!", null, false, Callable(), true)
-	_agregar_tarea("elegir", "Elegí un astronauta",
-		"Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También podés elegirlos con su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas ← →.",
+	_agregar_tarea("elegir", Idioma.t("Elegí un astronauta"),
+		Idioma.t("Hacé clic en un astronauta para elegirlo: se marca con un borde verde. También podés elegirlos con su tarjeta de la izquierda, las teclas 1, 2 y 3 o las flechas izquierda y derecha."),
 		func(): return _rect_astronauta(_primer_astronauta()),
 		func(): return base._activo() != null)
 	var peor := _peor_maquina()
-	_agregar_tarea("reparar", "Repará una máquina",
-		"Las máquinas se gastan: con borde amarillo necesitan ayuda y en rojo están por romperse. Con el astronauta elegido, hacé clic en esta máquina y mirá cómo camina hasta ella para repararla.",
+	_agregar_tarea("reparar", Idioma.t("Repará una máquina"),
+		Idioma.t("Las máquinas se gastan: con borde amarillo necesitan ayuda y en rojo están por romperse. Con el astronauta elegido, hacé clic en esta máquina y mirá cómo camina hasta ella para repararla."),
 		func(): return _zona_reparacion(peor),
 		func(): return _alguien_reparando(),
 		peor,
-		func(): return "Caminando hacia la máquina..." if _quien_va_a_reparar() != null else "")
-	_agregar_info("equipo", "Trabajo en equipo",
+		func(): return Idioma.t("Caminando hacia la máquina...") if _quien_va_a_reparar() != null else "")
+	_agregar_info("equipo", Idioma.t("Trabajo en equipo"),
 		TextosAyuda.texto("equipo"))
-	_agregar_tarea("camara", "Mové la cámara",
-		"Usá la rueda del mouse (o la barra de zoom de la derecha) para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Al elegir un astronauta, lo seguimos por la base.",
+	_agregar_tarea("camara", Idioma.t("Mové la cámara"),
+		Idioma.t("Usá la rueda del mouse (o la barra de zoom de la derecha) para acercar y alejar, y hacé clic y arrastrá para mover el mapa. Al elegir un astronauta, lo seguimos por la base."),
 		Callable(),
 		func(): return base.uso_rueda and base.uso_arrastre,
 		null,
-		func(): return "%s Zoom    %s Arrastrar" % ["✔" if base.uso_rueda else "○", "✔" if base.uso_arrastre else "○"])
-	_agregar_info("tripulacion", "Tu tripulación",
+		func(): return Idioma.t("%s Zoom    %s Arrastrar") % ["[x]" if base.uso_rueda else "[ ]", "[x]" if base.uso_arrastre else "[ ]"])
+	_agregar_info("tripulacion", Idioma.t("Tu tripulación"),
 		TextosAyuda.texto("tripulacion"),
 		null, false, func(): return hud.rect_tripulacion())
-	_agregar_info("bonos", "Bonos de salud",
+	_agregar_info("bonos", Idioma.t("Bonos de salud"),
 		TextosAyuda.texto("bonos"),
 		null, false, func(): return hud.rect_tripulacion())
-	_agregar_info("rec_energia", "Recurso: Energía",
+	_agregar_info("rec_energia", Idioma.t("Recurso: Energía"),
 		TextosAyuda.texto("rec_energia"),
 		null, false, func(): return hud.rect_recurso("energia"))
-	_agregar_info("rec_oxigeno", "Recurso: Oxígeno",
+	_agregar_info("rec_oxigeno", Idioma.t("Recurso: Oxígeno"),
 		TextosAyuda.texto("rec_oxigeno"),
 		null, false, func(): return hud.rect_recurso("oxigeno"))
-	_agregar_info("rec_radiacion", "Recurso: Radiación",
+	_agregar_info("rec_radiacion", Idioma.t("Recurso: Radiación"),
 		TextosAyuda.texto("rec_radiacion"),
 		null, false, func(): return hud.rect_recurso("radiacion"))
 	_mostrar_siguiente.call_deferred()
@@ -103,8 +104,8 @@ func _process(delta: float) -> void:
 		if p.hambre >= p.umbral_globo_hambre and not _vistos.has("hambre"):
 			var comedor := _mas_cercano("comedores", p, false)
 			if comedor != null:
-				_agregar_tarea("hambre", "¡%s tiene hambre!" % p.obtener_nombre(),
-					"La manzana sobre su cabeza avisa que necesita comer. Elegilo y hacé clic en el comedor. Si la comida llega a cero, pierde salud.",
+				_agregar_tarea("hambre", Idioma.t("¡%s tiene hambre!") % p.obtener_nombre(),
+					Idioma.t("La manzana sobre su cabeza avisa que necesita comer. Elegilo y hacé clic en el comedor. Si la comida llega a cero, pierde salud."),
 					func(): return comedor.rect_mesa().grow(16.0),
 					func(): return p.orden == Personaje.Orden.USAR or p.hambre < p.umbral_globo_hambre,
 					comedor)
@@ -113,8 +114,8 @@ func _process(delta: float) -> void:
 		if p.sueno >= p.umbral_globo_sueno and not _vistos.has("sueno"):
 			var cama := _mas_cercano("camas", p, true)
 			if cama != null:
-				_agregar_tarea("sueno", "¡%s tiene sueño!" % p.obtener_nombre(),
-					"El \"Zz\" sobre su cabeza avisa que necesita dormir. Elegilo y hacé clic en esta cama. Si la energía llega a cero, se duerme donde esté.",
+				_agregar_tarea("sueno", Idioma.t("¡%s tiene sueño!") % p.obtener_nombre(),
+					Idioma.t("El \"Zz\" sobre su cabeza avisa que necesita dormir. Elegilo y hacé clic en esta cama. Si la energía llega a cero, se duerme donde esté."),
 					func(): return Rect2(cama.global_position - Vector2(14, 22), Vector2(28, 44)),
 					func(): return p.en_cama or p.quiere_acostarse or p.sueno < p.umbral_globo_sueno,
 					cama)
@@ -136,7 +137,7 @@ func maquina_tocada(m: Maquina) -> void:
 
 func _al_iniciar_evento(ev: Dictionary) -> void:
 	if _es_exploracion(ev):
-		_agregar_info("exploracion", "Las exploraciones",
+		_agregar_info("exploracion", Idioma.t("Las exploraciones"),
 			TextosAyuda.texto("exploracion"),
 			_rover(), true)
 		_mostrar_siguiente.call_deferred()  # aparece encima de la ventana del evento
@@ -193,7 +194,7 @@ func _mostrar_siguiente() -> void:
 		if foco != null and is_instance_valid(foco):
 			base.enfocar(foco)
 		if paso["tipo"] == "aviso":
-			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea, "Siguiente")
+			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea, Idioma.t("Siguiente"))
 		else:
 			hud.mostrar_instruccion(paso["titulo"], paso["texto"], _cerrar_tarea)
 		_seguir_tarea(0.0)
@@ -205,7 +206,7 @@ func _mostrar_siguiente() -> void:
 	var con_foco := zona.is_valid()
 	if con_foco:
 		hud.poner_foco(zona.call(), true)
-	var boton := "Siguiente"  # las explicaciones siempre avanzan con "Siguiente"
+	var boton := Idioma.t("Siguiente")  # las explicaciones siempre avanzan con "Siguiente"
 	var al_cerrar := func():
 		hud.poner_foco(Rect2(), false)
 		_paso_terminado()
@@ -253,7 +254,7 @@ func _completar_tarea() -> void:
 	_completando = true
 	var progreso: Callable = _tarea.get("progreso", Callable())
 	var antes: String = progreso.call() + "    " if progreso.is_valid() else ""
-	hud.progreso_instruccion(antes + "✔ ¡Listo!")
+	hud.progreso_instruccion(antes + Idioma.t("¡Listo!"))
 	var tarea := _tarea
 	get_tree().create_timer(ESPERA_TILDE).timeout.connect(func():
 		if _tarea == tarea:

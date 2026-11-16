@@ -1,5 +1,6 @@
 class_name Maquina
 extends Node2D
+const Idioma := preload("res://Base/idioma.gd")
 ## Comportamiento común de todas las máquinas (va en la raíz de cada escena de Maquinas/).
 ## - El mantenimiento baja con el tiempo, más rápido cuanto más radiación hay.
 ## - Los astronautas que trabajan en ella (laburar_brazo) lo suben.
@@ -190,20 +191,20 @@ func en_equipo() -> bool:
 func obtener_estado() -> String:
 	if esta_apagada():
 		var t := int(ceilf(_t_apagada))
-		return "Apagada %d:%02d (no se puede reparar)" % [t / 60, t % 60]
+		return Idioma.t("Apagada %d:%02d (no se puede reparar)") % [t / 60, t % 60]
 	if tiene_desgaste and averiada:
 		if mantenimiento <= 0.0:
-			return "Fuera de servicio"
-		return "Averiada: reparar hasta %d%%" % roundi(umbral_critico)
+			return Idioma.t("Fuera de servicio")
+		return Idioma.t("Averiada: reparar hasta %d%%") % roundi(umbral_critico)
 	if requiere_energia and recursos() != null and not recursos().hay_energia():
-		return "Sin energía"
+		return Idioma.t("Sin energía")
 	if not tiene_desgaste:
-		return "Operativa"
+		return Idioma.t("Operativa")
 	if mantenimiento >= umbral_borde:
-		return "Operativa"
+		return Idioma.t("Operativa")
 	elif mantenimiento > umbral_critico:
-		return "Desgastada"
-	return "Crítica"
+		return Idioma.t("Desgastada")
+	return Idioma.t("Crítica")
 
 
 ## Mismo criterio que el borde: verde sin borde; debajo de umbral_borde pasa de amarillo a rojo,

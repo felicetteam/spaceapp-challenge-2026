@@ -34,7 +34,7 @@ func _ready() -> void:
 	_silla = get_node_or_null("Silla")
 	# Aviso mientras no se haya explorado nada (sin investigaciones desbloqueadas)
 	_aviso_bloqueo = Label.new()
-	_aviso_bloqueo.text = "Explorá para desbloquear\nuna investigación"
+	_aviso_bloqueo.text = Idioma.t("Explorá para desbloquear\nuna investigación")
 	_aviso_bloqueo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_aviso_bloqueo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_aviso_bloqueo.add_theme_font_size_override("font_size", 7)
@@ -103,20 +103,20 @@ func trabajar(delta: float) -> void:
 func _avisar_completa(m: Dictionary) -> void:
 	var hud := get_tree().current_scene.get_node_or_null("HUD")
 	if hud != null and hud.has_method("agregar_alerta"):
-		hud.agregar_alerta("¡Investigación completa: %s! Leela en Información > Diario" % String(m.get("titulo", "")), 0, self)
+		hud.agregar_alerta(Idioma.t("¡Investigación completa: %s! Leela en Información > Diario") % String(m.get("titulo", "")), 0, self)
 	progreso_investigacion = 0.0
 
 
 func obtener_estado() -> String:
 	if not funcionando():
-		return "Sin energía"
+		return Idioma.t("Sin energía")
 	if not _desbloqueada():
 		var d := _diario()
 		if d != null and d.cantidad_desbloqueadas() > 0:
-			return "Todo investigado: explorá para seguir"
-		return "Bloqueado: falta explorar"
+			return Idioma.t("Todo investigado: explorá para seguir")
+		return Idioma.t("Bloqueado: falta explorar")
 	var m: Dictionary = _diario().activa()
-	return "Investigando %s: %d%%" % [String(m.get("titulo", "")), roundi(100.0 * _diario().fraccion(m))]
+	return Idioma.t("Investigando %s: %d%%") % [String(m.get("titulo", "")), roundi(100.0 * _diario().fraccion(m))]
 
 
 ## Hay una investigación desbloqueada y sin completar en el diario.

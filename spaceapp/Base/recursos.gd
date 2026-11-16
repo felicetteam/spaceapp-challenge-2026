@@ -1,5 +1,6 @@
 class_name Recursos
 extends Node
+const Idioma := preload("res://Base/idioma.gd")
 ## Recursos globales de la base y reloj marciano (un sol dura 24:39).
 ## Los multiplicadores de velocidad están en Base/ajustes.gd.
 ## base.gd lo crea como hijo. Cualquier nodo lo encuentra con Recursos.de(self).
@@ -214,7 +215,7 @@ func luz() -> float:
 func texto_reloj() -> String:
 	var h := int(hora)
 	var m := int((hora - h) * 60.0)
-	return "Sol %d · %02d:%02d %s" % [sol, h, m, "Día" if es_de_dia() else "Noche"]
+	return Idioma.t("Sol %d · %02d:%02d %s") % [sol, h, m, Idioma.t("Día") if es_de_dia() else Idioma.t("Noche")]
 
 
 # --- Interno -------------------------------------------------------------------
@@ -229,10 +230,10 @@ func _avanzar_reloj(delta: float) -> void:
 		_era_de_dia = de_dia
 		if de_dia:
 			amanecer.emit()
-			_avisar("Amanece: los paneles vuelven a cargar", 0)
+			_avisar(Idioma.t("Amanece: los paneles vuelven a cargar"), 0)
 		else:
 			anochecer.emit()
-			_avisar("Anochece: los paneles dejan de generar", 0)
+			_avisar(Idioma.t("Anochece: los paneles dejan de generar"), 0)
 
 
 func _avisar(texto: String, nivel: int) -> void:
@@ -250,20 +251,20 @@ func avisar(texto: String, nivel: int, objetivo: Node2D = null) -> void:
 ## Las alertas solo llegan con las comunicaciones funcionando. Cada condición avisa una vez
 ## y se rearma cuando deja de cumplirse.
 func _revisar_alertas() -> void:
-	_condicion("energia", energia < 25.0, "Energía baja (%d%%)" % roundi(energia), 1)
-	_condicion("energia0", energia <= 0.0, "Sin energía: las máquinas se detuvieron", 2)
-	_condicion("o2", oxigeno < 50.0, "Oxígeno bajo (%d%%)" % roundi(oxigeno), 1)
-	_condicion("radiacion", radiacion > 80.0, "Radiación peligrosa (%d%%)" % roundi(radiacion), 2)
+	_condicion("energia", energia < 25.0, Idioma.t("Energía baja (%d%%)") % roundi(energia), 1)
+	_condicion("energia0", energia <= 0.0, Idioma.t("Sin energía: las máquinas se detuvieron"), 2)
+	_condicion("o2", oxigeno < 50.0, Idioma.t("Oxígeno bajo (%d%%)") % roundi(oxigeno), 1)
+	_condicion("radiacion", radiacion > 80.0, Idioma.t("Radiación peligrosa (%d%%)") % roundi(radiacion), 2)
 	for m in get_tree().get_nodes_in_group("maquinas"):
 		if not m.tiene_desgaste:
 			continue
 		var id := str(m.get_instance_id())
 		_condicion("crit" + id, m.mantenimiento <= m.umbral_critico and not m.averiada,
-				"%s: mantenimiento crítico" % m.nombre_maquina, 1, m)
-		_condicion("rota" + id, m.averiada, "%s fuera de servicio" % m.nombre_maquina, 2, m)
+				Idioma.t("%s: mantenimiento crítico") % Idioma.t(m.nombre_maquina), 1, m)
+		_condicion("rota" + id, m.averiada, Idioma.t("%s fuera de servicio") % Idioma.t(m.nombre_maquina), 2, m)
 	for a in get_tree().get_nodes_in_group("astronautas"):
 		_condicion("desm" + str(a.get_instance_id()), a.desmayado,
-				"%s está inconsciente" % a.obtener_nombre(), 2, a)
+				Idioma.t("%s está inconsciente") % a.obtener_nombre(), 2, a)
 
 
 func _condicion(clave: String, activa: bool, texto: String, nivel: int, objetivo: Node2D = null) -> void:

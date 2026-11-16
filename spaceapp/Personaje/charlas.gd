@@ -2,7 +2,9 @@ extends RefCounted
 ## Charlas entre astronautas: cuando dos se cruzan en el camino, uno le cuenta al otro un dato
 ## curioso de Marte y, unos segundos después, el otro le responde asombrado.
 ## Las charlas también quedan en el historial del HUD (los últimos 10 mensajes).
-## Agregá o cambiá frases acá.
+## Agregá o cambiá frases acá (y su traducción en Idiomas/en.json).
+
+const Idioma := preload("res://Base/idioma.gd")
 
 ## Segundos mínimos entre una charla y la siguiente (para que no hablen en cada cruce).
 const ESPERA_ENTRE_CHARLAS := 25.0
@@ -69,8 +71,8 @@ static func dato_al_azar() -> String:
 		for i in DATOS.size():
 			_bolsa.append(i)
 		_bolsa.shuffle()
-	return DATOS[_bolsa.pop_back()]
+	return Idioma.t(DATOS[_bolsa.pop_back()])
 
 
 static func respuesta_al_azar() -> String:
-	return RESPUESTAS.pick_random()
+	return Idioma.t(RESPUESTAS.pick_random())

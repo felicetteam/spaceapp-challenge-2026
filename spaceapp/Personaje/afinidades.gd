@@ -1,5 +1,6 @@
 class_name Afinidades
 extends RefCounted
+const Idioma := preload("res://Base/idioma.gd")
 ## AFINIDADES DE LOS ASTRONAUTAS
 ## Editá los números de la tabla. 1.0 = normal. Se usan apenas arranca el juego.
 ##
@@ -34,14 +35,14 @@ static func describir(nombre: String) -> Dictionary:
 	# La tabla dice por cuánto se divide cada cosa: menos de 1 = bono, más de 1 = penalidad.
 	# Salud: el gasto de comida y energía queda multiplicado por el valor
 	if salud < 1.0:
-		bonos.append("Gasta %d%% menos comida y energía" % roundi((1.0 - salud) * 100.0))
+		bonos.append(Idioma.t("Gasta %d%% menos comida y energía") % roundi((1.0 - salud) * 100.0))
 	elif salud > 1.0:
-		penalidades.append("Gasta %d%% más comida y energía" % roundi((salud - 1.0) * 100.0))
+		penalidades.append(Idioma.t("Gasta %d%% más comida y energía") % roundi((salud - 1.0) * 100.0))
 	# Trabajo e investigación: la velocidad queda dividida por el valor
-	for datos in [["trabajo", "velocidad de trabajo y reparación"], ["investigacion", "velocidad de investigación"]]:
+	for datos in [["trabajo", Idioma.t("velocidad de trabajo y reparación")], ["investigacion", Idioma.t("velocidad de investigación")]]:
 		var efecto: float = 1.0 / maxf(de(nombre, datos[0]), 0.01)
 		if efecto > 1.0:
-			bonos.append("+%d%% %s" % [roundi((efecto - 1.0) * 100.0), datos[1]])
+			bonos.append(Idioma.t("+%d%% %s") % [roundi((efecto - 1.0) * 100.0), datos[1]])
 		elif efecto < 1.0:
-			penalidades.append("−%d%% %s" % [roundi((1.0 - efecto) * 100.0), datos[1]])
+			penalidades.append(Idioma.t("-%d%% %s") % [roundi((1.0 - efecto) * 100.0), datos[1]])
 	return {"bonos": bonos, "penalidades": penalidades}

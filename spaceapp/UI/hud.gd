@@ -1,4 +1,5 @@
 extends CanvasLayer
+const Idioma := preload("res://Base/idioma.gd")
 ## Columna a la izquierda: reloj y recursos globales, tarjetas de la tripulación y, debajo,
 ## el panel de mantenimiento. A la derecha, las alertas.
 ## Los recursos, los desgastes y las alertas solo se ven mientras las comunicaciones funcionan.
@@ -13,6 +14,8 @@ signal zoom_pedido(t: float)
 signal pausa_pedida(pausar: bool)
 ## Botón de exploraciones pendientes (abajo a la derecha).
 signal exploracion_pedida
+## Botón "Investigación pendiente": mandar a alguien al escritorio.
+signal investigacion_pedida
 
 ## Ancho fijo de la columna izquierda: no crece con los textos largos (esos se desplazan).
 const ANCHO_TARJETA := 188
@@ -60,6 +63,11 @@ var _lbl_velocidad: Label
 var _boton_exploracion: Button
 ## Botón de reportes pendientes (investigaciones completas sin responder el reporte).
 var _boton_reportes: Button
+## Botón de investigación pendiente (hay una activa y nadie está en el escritorio).
+var _boton_investigacion: Button
+var _panel_debug: Control
+## Lo asigna la base: para saber si alguien está investigando.
+var escritorio: Node
 # Historial de charlas entre astronautas (los últimos MAX_CHARLAS mensajes)
 const MAX_CHARLAS := 10
 var _panel_charlas: PanelContainer
@@ -81,15 +89,15 @@ func _ready() -> void:
 	_panel_recursos.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vbox := _vbox(3)
 	_panel_recursos.add_child(vbox)
-	var m_reloj := _marquesina("Sol 1 · 00:00", 11)
+	var m_reloj := _marquesina(Idioma.t("Sol 1 · 00:00"), 11)
 	_lbl_reloj = m_reloj.label
 	vbox.add_child(m_reloj)
 	_caja_barras = _vbox(3)
 	vbox.add_child(_caja_barras)
-	_agregar_barra_recurso("energia", "Energía", Color(0.95, 0.8, 0.2))
-	_agregar_barra_recurso("oxigeno", "Oxígeno", Color(0.35, 0.75, 1.0))
-	_agregar_barra_recurso("radiacion", "Radiación", Color(0.75, 0.4, 0.95))
-	_aviso_comunicaciones = _label("Sin comunicaciones: no se ven recursos ni desgastes", 9)
+	_agregar_barra_recurso("energia", Idioma.t("Energía"), Color(0.95, 0.8, 0.2))
+	_agregar_barra_recurso("oxigeno", Idioma.t("Oxígeno"), Color(0.35, 0.75, 1.0))
+	_agregar_barra_recurso("radiacion", Idioma.t("Radiación"), Color(0.75, 0.4, 0.95))
+	_aviso_comunicaciones = _label(Idioma.t("Sin comunicaciones: no se ven recursos ni desgastes"), 9)
 	_aviso_comunicaciones.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_aviso_comunicaciones.modulate = Color(1.0, 0.55, 0.45)
 	vbox.add_child(_aviso_comunicaciones)
@@ -124,7 +132,7 @@ func _ready() -> void:
 	_boton_atencion.add_theme_stylebox_override("hover", _estilo_panel())
 	_boton_atencion.add_theme_stylebox_override("pressed", _estilo_panel())
 	_boton_atencion.add_theme_stylebox_override("disabled", _estilo_panel())
-	_boton_atencion.tooltip_text = "Clic: ir a la siguiente máquina con problemas"
+	_boton_atencion.tooltip_text = Idioma.t("Clic: ir a la siguiente máquina con problemas")
 	_boton_atencion.pressed.connect(_ir_a_siguiente_maquina)
 	columna.add_child(_boton_atencion)
 	columna.move_child(_boton_atencion, titulo_mantenimiento.get_index())
@@ -146,7 +154,7 @@ func _ready() -> void:
 	_panel_charlas.mouse_filter = Control.MOUSE_FILTER_PASS
 	var caja_charlas := _vbox(3)
 	_panel_charlas.add_child(caja_charlas)
-	var titulo_charlas := _label("Charlas", 10)
+	var titulo_charlas := _label(Idioma.t("Charlas"), 10)
 	titulo_charlas.modulate = Color(0.6, 0.9, 1.0)
 	caja_charlas.add_child(titulo_charlas)
 	_scroll_charlas = ScrollContainer.new()
@@ -157,7 +165,7 @@ func _ready() -> void:
 	_lista_charlas = _vbox(3)
 	_lista_charlas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll_charlas.add_child(_lista_charlas)
-	var vacio := _label("Todavía nadie charló.", 9)
+	var vacio := _label(Idioma.t("Todavía nadie charló."), 9)
 	vacio.modulate = Color(0.6, 0.63, 0.7)
 	vacio.name = "Vacio"
 	_lista_charlas.add_child(vacio)
@@ -205,7 +213,7 @@ func _crear_boton_exploracion() -> void:
 	estilo.set_border_width_all(2)
 	for estado in ["normal", "hover", "pressed"]:
 		_boton_exploracion.add_theme_stylebox_override(estado, estilo)
-	_boton_exploracion.tooltip_text = "Elegir quién sale a explorar con el rover"
+	_boton_exploracion.tooltip_text = Idioma.t("Elegir quién sale a explorar con el rover")
 	_boton_exploracion.visible = false
 	_boton_exploracion.pressed.connect(func(): exploracion_pedida.emit())
 	add_child(_boton_exploracion)
@@ -225,20 +233,41 @@ func _crear_boton_exploracion() -> void:
 	estilo_rep.set_border_width_all(2)
 	for estado in ["normal", "hover", "pressed"]:
 		_boton_reportes.add_theme_stylebox_override(estado, estilo_rep)
-	_boton_reportes.tooltip_text = "Investigación completa: respondé su reporte en el diario"
+	_boton_reportes.tooltip_text = Idioma.t("Investigación completa: respondé su reporte en el diario")
 	_boton_reportes.visible = false
 	_boton_reportes.pressed.connect(func():
 		var pendientes: Array = diario.reportes_pendientes() if diario != null else []
 		abrir_info("diario", pendientes[0] if not pendientes.is_empty() else -1))
 	add_child(_boton_reportes)
 
+	# Arriba de todo: investigación activa sin nadie en el escritorio
+	_boton_investigacion = Button.new()
+	_boton_investigacion.focus_mode = Control.FOCUS_NONE
+	_boton_investigacion.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_boton_investigacion.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_boton_investigacion.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_boton_investigacion.offset_right = -12
+	_boton_investigacion.offset_bottom = -92
+	_boton_investigacion.custom_minimum_size = Vector2(170, 34)
+	_boton_investigacion.add_theme_font_size_override("font_size", 12)
+	var estilo_inv := _estilo_panel()
+	estilo_inv.border_color = Color(0.45, 0.75, 1.0)
+	estilo_inv.set_border_width_all(2)
+	for estado in ["normal", "hover", "pressed"]:
+		_boton_investigacion.add_theme_stylebox_override(estado, estilo_inv)
+	_boton_investigacion.text = Idioma.t("Investigación pendiente")
+	_boton_investigacion.tooltip_text = Idioma.t("Nadie está investigando: manda al astronauta elegido al escritorio")
+	_boton_investigacion.visible = false
+	_boton_investigacion.pressed.connect(func(): investigacion_pedida.emit())
+	add_child(_boton_investigacion)
+
 
 func mostrar_exploraciones_pendientes(cantidad: int) -> void:
 	if _boton_exploracion == null:
 		return
 	_boton_exploracion.visible = cantidad > 0
-	_boton_exploracion.text = "Exploración pendiente" if cantidad <= 1 \
-			else "Exploraciones pendientes (%d)" % cantidad
+	_boton_exploracion.text = Idioma.t("Exploración pendiente") if cantidad <= 1 \
+			else Idioma.t("Exploraciones pendientes (%d)") % cantidad
 
 
 ## Rectángulo en pantalla del botón de exploraciones (para el tutorial).
@@ -274,22 +303,22 @@ func mostrar_exploracion(titulo: String, texto: String, candidatos: Array[Dictio
 	centro.add_child(panel)
 	var vbox := _vbox(8)
 	panel.add_child(vbox)
-	var lbl_titulo := _texto_evento("EXPLORACIÓN · %s" % titulo.to_upper(), 14, Color(1.0, 0.85, 0.45))
+	var lbl_titulo := _texto_evento(Idioma.t("EXPLORACIÓN · %s") % titulo.to_upper(), 14, Color(1.0, 0.85, 0.45))
 	vbox.add_child(lbl_titulo)
 	vbox.add_child(_texto_evento(texto, 12, Color.WHITE))
 	if aviso != "":
 		vbox.add_child(_texto_evento(aviso, 11, Color(1.0, 0.6, 0.5)))
-	vbox.add_child(_texto_evento("¿Quién sale?", 12, Color(0.6, 0.9, 1.0)))
+	vbox.add_child(_texto_evento(Idioma.t("¿Quién sale?"), 12, Color(0.6, 0.9, 1.0)))
 	for c in candidatos:
 		var p: Personaje = c["p"]
 		var motivo := String(c.get("motivo", ""))
 		var boton := Button.new()
 		boton.focus_mode = Control.FOCUS_NONE
 		boton.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		boton.text = "%s · salud %d%% · energía %d%%" % [p.obtener_nombre(), roundi(p.salud),
+		boton.text = Idioma.t("%s · salud %d%% · energía %d%%") % [p.obtener_nombre(), roundi(p.salud),
 				roundi(100.0 - p.sueno)]
 		if motivo != "" and motivo != aviso:
-			boton.text += "\nNo puede: " + motivo
+			boton.text += Idioma.t("\nNo puede: ") + motivo
 		boton.disabled = motivo != ""
 		boton.custom_minimum_size = Vector2(388, 32)
 		boton.add_theme_font_size_override("font_size", 11)
@@ -299,7 +328,7 @@ func mostrar_exploracion(titulo: String, texto: String, candidatos: Array[Dictio
 		vbox.add_child(boton)
 	var salir := Button.new()
 	salir.focus_mode = Control.FOCUS_NONE
-	salir.text = "Salir"
+	salir.text = Idioma.t("Salir")
 	salir.size_flags_horizontal = Control.SIZE_SHRINK_END
 	salir.custom_minimum_size = Vector2(110, 30)
 	salir.add_theme_font_size_override("font_size", 12)
@@ -320,7 +349,7 @@ func _crear_barra_zoom() -> void:
 	panel.offset_right = -12
 	panel.offset_top = -100
 	panel.offset_bottom = 100
-	panel.tooltip_text = "Zoom: arrastrá la barra"
+	panel.tooltip_text = Idioma.t("Zoom: arrastrá la barra")
 	add_child(panel)
 	var caja := _vbox(4)
 	caja.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -364,12 +393,12 @@ func _crear_controles_velocidad() -> void:
 	fila.add_child(columna_velocidad)
 	_boton_pausa = _boton_chico("")
 	_boton_pausa.icon = _icono(false)
-	_boton_pausa.tooltip_text = "Pausa (podés seguir dando órdenes)"
+	_boton_pausa.tooltip_text = Idioma.t("Pausa, tecla Espacio (podés seguir dando órdenes)")
 	_boton_pausa.pressed.connect(func(): pausa_pedida.emit(true))
 	columna_velocidad.add_child(_boton_pausa)
 	_boton_play = _boton_chico("")
 	_boton_play.icon = _icono(true)
-	_boton_play.tooltip_text = "Play"
+	_boton_play.tooltip_text = Idioma.t("Play")
 	_boton_play.pressed.connect(func(): pausa_pedida.emit(false))
 	columna_velocidad.add_child(_boton_play)
 	var info := _boton_chico("")
@@ -378,9 +407,9 @@ func _crear_controles_velocidad() -> void:
 	info.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info.custom_minimum_size = Vector2(56, 52)
 	if info.icon == null:
-		info.text = "Información"  # (si todavía no está la imagen)
+		info.text = Idioma.t("Información")  # (si todavía no está la imagen)
 		info.add_theme_font_size_override("font_size", 11)
-	info.tooltip_text = "Información: Base (máquinas, mecánicas y astronautas) y Diario (investigaciones)"
+	info.tooltip_text = Idioma.t("Información: Base (máquinas, mecánicas y astronautas) y Diario (investigaciones)")
 	info.pressed.connect(abrir_info)
 	fila.add_child(info)
 	_lbl_velocidad = _label("", 10)
@@ -399,17 +428,18 @@ func _crear_botones_debug() -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.offset_right = -12
 	panel.offset_bottom = -96
+	_panel_debug = panel
 	add_child(panel)
 	var caja := _vbox(4)
 	panel.add_child(caja)
-	var titulo := _label("Debug", 9)
+	var titulo := _label(Idioma.t("Debug"), 9)
 	titulo.modulate = Color(1.0, 0.6, 0.4)
 	caja.add_child(titulo)
-	var desbloquear := _boton_chico("Desbloquear investigación")
+	var desbloquear := _boton_chico(Idioma.t("Desbloquear investigación"))
 	desbloquear.add_theme_font_size_override("font_size", 10)
 	desbloquear.pressed.connect(_debug_desbloquear)
 	caja.add_child(desbloquear)
-	var avanzar := _boton_chico("Investigación +25%")
+	var avanzar := _boton_chico(Idioma.t("Investigación +25%"))
 	avanzar.add_theme_font_size_override("font_size", 10)
 	avanzar.pressed.connect(_debug_avanzar)
 	caja.add_child(avanzar)
@@ -424,21 +454,21 @@ func _debug_desbloquear() -> void:
 			var r := Recursos.de(self)
 			if r != null:
 				r.investigaciones_desbloqueadas = diario.cantidad_desbloqueadas()
-			agregar_alerta("[Debug] Desbloqueada: %s" % String(m["titulo"]), 0)
+			agregar_alerta(Idioma.t("[Debug] Desbloqueada: %s") % String(m["titulo"]), 0)
 			return
-	agregar_alerta("[Debug] Ya están todas desbloqueadas", 0)
+	agregar_alerta(Idioma.t("[Debug] Ya están todas desbloqueadas"), 0)
 
 
 func _debug_avanzar() -> void:
 	if diario == null or not diario.hay_activa():
-		agregar_alerta("[Debug] No hay ninguna investigación en curso", 0)
+		agregar_alerta(Idioma.t("[Debug] No hay ninguna investigación en curso"), 0)
 		return
 	var m: Dictionary = diario.activa()
 	var completa: Dictionary = diario.avanzar(25.0)  # (el total de una investigación es 100)
 	if not completa.is_empty():
-		agregar_alerta("[Debug] ¡Investigación completa: %s!" % String(m["titulo"]), 0)
+		agregar_alerta(Idioma.t("[Debug] ¡Investigación completa: %s!") % String(m["titulo"]), 0)
 	else:
-		agregar_alerta("[Debug] %s: %d%%" % [String(m["titulo"]), roundi(100.0 * diario.fraccion(m))], 0)
+		agregar_alerta(Idioma.t("[Debug] %s: %d%%") % [String(m["titulo"]), roundi(100.0 * diario.fraccion(m))], 0)
 
 
 ## Agrega un mensaje al historial de charlas (se guardan los últimos MAX_CHARLAS).
@@ -496,10 +526,32 @@ func _actualizar_boton_reportes() -> void:
 		return
 	var n: int = diario.reportes_pendientes().size()
 	_boton_reportes.visible = n > 0
-	_boton_reportes.text = "Reporte pendiente" if n <= 1 else "Reportes pendientes (%d)" % n
+	_boton_reportes.text = Idioma.t("Reporte pendiente") if n <= 1 else Idioma.t("Reportes pendientes (%d)") % n
 	# Si no hay exploración pendiente, baja al lugar de ese botón
-	_boton_reportes.offset_bottom = -52 if _boton_exploracion != null and _boton_exploracion.visible else -12
-	_boton_reportes.offset_top = _boton_reportes.offset_bottom - 34
+	_actualizar_boton_investigacion()
+	_apilar_botones()
+
+
+func _actualizar_boton_investigacion() -> void:
+	if _boton_investigacion == null:
+		return
+	var hay: bool = diario != null and diario.has_method("hay_activa") and diario.hay_activa()
+	var nadie: bool = escritorio == null or not ("trabajadores" in escritorio) \
+			or (escritorio.get("trabajadores") as Array).is_empty()
+	_boton_investigacion.visible = hay and nadie
+
+
+## Apila de abajo hacia arriba los botones visibles: exploración, reportes, investigación, debug.
+func _apilar_botones() -> void:
+	var y := -12.0
+	for b in [_boton_exploracion, _boton_reportes, _boton_investigacion]:
+		if b == null or not b.visible:
+			continue
+		b.offset_bottom = y
+		b.offset_top = y - 34
+		y -= 40
+	if _panel_debug != null:
+		_panel_debug.offset_bottom = minf(-96.0, y - 4)
 
 
 func cerrar_info() -> void:
@@ -514,9 +566,9 @@ func mostrar_velocidad(pausado: bool, acelerado: bool) -> void:
 	_boton_pausa.modulate = Color(0.55, 0.9, 1.0) if pausado else Color(0.8, 0.82, 0.88)
 	_boton_play.modulate = Color(0.55, 0.9, 1.0) if not pausado else Color(0.8, 0.82, 0.88)
 	if pausado:
-		_lbl_velocidad.text = "En pausa"
+		_lbl_velocidad.text = Idioma.t("En pausa")
 	elif acelerado:
-		_lbl_velocidad.text = "x3 · todos duermen"
+		_lbl_velocidad.text = Idioma.t("x3 · todos duermen")
 	else:
 		_lbl_velocidad.text = ""
 	_lbl_velocidad.visible = _lbl_velocidad.text != ""
@@ -615,7 +667,7 @@ func _crear_tarjeta(astro: Personaje, numero: int) -> PanelContainer:
 	fila_top.add_child(m_nombre)
 
 	# El estado puede ser largo ("Dormido (agotado) 12s"): se desplaza en su lugar
-	var m_estado := _marquesina("Bien", 10, HORIZONTAL_ALIGNMENT_RIGHT)
+	var m_estado := _marquesina(Idioma.t("Bien"), 10, HORIZONTAL_ALIGNMENT_RIGHT)
 	m_estado.size_flags_stretch_ratio = 1.1
 	var lbl_estado := m_estado.label
 	fila_top.add_child(m_estado)
@@ -628,8 +680,8 @@ func _crear_tarjeta(astro: Personaje, numero: int) -> PanelContainer:
 	var fila_sub := _hbox(6)
 	vbox.add_child(fila_sub)
 
-	var col_comida := _crear_sub_indicador("Comida", Color(0.95, 0.6, 0.2))
-	var col_sueno := _crear_sub_indicador("Energía", Color(0.35, 0.7, 0.95))
+	var col_comida := _crear_sub_indicador(Idioma.t("Comida"), Color(0.95, 0.6, 0.2))
+	var col_sueno := _crear_sub_indicador(Idioma.t("Energía"), Color(0.35, 0.7, 0.95))
 	fila_sub.add_child(col_comida["box"])
 	fila_sub.add_child(col_sueno["box"])
 
@@ -668,7 +720,7 @@ func _on_estado_actualizado(astro: Personaje) -> void:
 func _crear_tarjeta_maquina(m: Maquina) -> PanelContainer:
 	var estilo_panel := _estilo_panel()
 	var panel := _crear_panel(estilo_panel, Vector2(ANCHO_TARJETA - 10, 0))
-	panel.tooltip_text = "Clic: mandar al astronauta seleccionado a trabajar acá"
+	panel.tooltip_text = Idioma.t("Clic: mandar al astronauta seleccionado a trabajar acá")
 	# PASS: la rueda del mouse sigue llegando al scroll
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 
@@ -772,10 +824,10 @@ func agregar_alerta(texto: String, nivel: int = 1, objetivo: Node2D = null) -> v
 	var panel := _crear_panel(estilo, Vector2(220, 0))
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if objetivo != null:
-		texto += "  (ver)"
+		texto += Idioma.t("  (ver)")
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-		panel.tooltip_text = "Clic: centrar la cámara"
+		panel.tooltip_text = Idioma.t("Clic: centrar la cámara")
 		panel.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT \
 					and is_instance_valid(objetivo):
@@ -847,14 +899,14 @@ func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_ele
 
 	var vbox := _vbox(10)
 	panel.add_child(vbox)
-	var titulo := _label("EVENTO CRÍTICO · %s" % String(ev.get("titulo", "")).to_upper(), 14)
+	var titulo := _label(Idioma.t("EVENTO CRÍTICO · %s") % String(ev.get("titulo", "")).to_upper(), 14)
 	titulo.modulate = Color(1.0, 0.5, 0.45)
 	vbox.add_child(titulo)
 	vbox.add_child(_texto_evento(String(ev.get("descripcion", "")), 12, Color.WHITE))
 	if efectos_iniciales != "":
-		vbox.add_child(_texto_evento("Efecto: " + efectos_iniciales, 11, Color(1.0, 0.75, 0.4)))
+		vbox.add_child(_texto_evento(Idioma.t("Efecto: ") + efectos_iniciales, 11, Color(1.0, 0.75, 0.4)))
 	if ev.has("consejo"):
-		vbox.add_child(_texto_evento("Qué hacer: " + String(ev["consejo"]), 11, Color(0.6, 0.95, 0.7)))
+		vbox.add_child(_texto_evento(Idioma.t("Qué hacer: ") + String(ev["consejo"]), 11, Color(0.6, 0.95, 0.7)))
 
 	for clave in ["opcion_a", "opcion_b"]:
 		var opcion: Dictionary = ev.get(clave, {})
@@ -868,7 +920,7 @@ func mostrar_evento(ev: Dictionary, efectos_a: String, efectos_b: String, al_ele
 		boton.add_theme_font_size_override("font_size", 11)
 		if bloqueadas.has(clave):
 			boton.disabled = true
-			boton.text += "\n(no hay astronautas disponibles)"
+			boton.text += Idioma.t("\n(no hay astronautas disponibles)")
 		boton.pressed.connect(func():
 			fondo.queue_free()
 			al_elegir.call(clave))
@@ -1048,13 +1100,13 @@ func elegir_astronauta(candidatos: Array[Personaje], tarea: String, al_elegir: C
 	centro.add_child(panel)
 	var vbox := _vbox(8)
 	panel.add_child(vbox)
-	var titulo := _texto_evento("¿Quién va? · %s" % tarea, 13, Color(0.6, 0.9, 1.0))
+	var titulo := _texto_evento(Idioma.t("¿Quién va? · %s") % tarea, 13, Color(0.6, 0.9, 1.0))
 	titulo.custom_minimum_size = Vector2(268, 0)
 	vbox.add_child(titulo)
 	for p in candidatos:
 		var boton := Button.new()
 		boton.focus_mode = Control.FOCUS_NONE
-		boton.text = "%s · salud %d%% · %s" % [p.obtener_nombre(), roundi(p.salud), p.estado_alerta]
+		boton.text = Idioma.t("%s · salud %d%% · %s") % [p.obtener_nombre(), roundi(p.salud), p.estado_alerta]
 		boton.custom_minimum_size = Vector2(268, 32)
 		boton.add_theme_font_size_override("font_size", 11)
 		boton.pressed.connect(func():
@@ -1083,7 +1135,7 @@ func _maquinas_con_problemas() -> Array[Maquina]:
 func _actualizar_boton_atencion() -> void:
 	var lista := _maquinas_con_problemas()
 	if lista.is_empty():
-		_atencion_linea1.text = "Máquinas: todo en orden"
+		_atencion_linea1.text = Idioma.t("Máquinas: todo en orden")
 		_atencion_linea2.text = ""
 		_atencion_linea2.get_parent().visible = false
 		_boton_atencion.disabled = true
@@ -1092,8 +1144,8 @@ func _actualizar_boton_atencion() -> void:
 	_boton_atencion.disabled = false
 	var peor := lista[0]
 	var n := lista.size()
-	_atencion_linea1.text = "%d %s atención" % [n, "máquina necesita" if n == 1 else "máquinas necesitan"]
-	_atencion_linea2.text = "Peor: %s %d%% (clic para ver)" % [peor.nombre_maquina, roundi(peor.mantenimiento)]
+	_atencion_linea1.text = Idioma.t("%d %s atención") % [n, Idioma.t("máquina necesita") if n == 1 else Idioma.t("máquinas necesitan")]
+	_atencion_linea2.text = Idioma.t("Peor: %s %d%% (clic para ver)") % [Idioma.t(peor.nombre_maquina), roundi(peor.mantenimiento)]
 	_atencion_linea2.get_parent().visible = true
 	_boton_atencion.modulate = Color(1.0, 0.45, 0.4) if peor.mantenimiento <= peor.umbral_critico \
 			else Color(1.0, 0.85, 0.35)

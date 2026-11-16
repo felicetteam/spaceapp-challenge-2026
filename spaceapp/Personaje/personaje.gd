@@ -1,5 +1,6 @@
 @tool
 class_name Personaje extends CharacterBody2D
+const Idioma := preload("res://Base/idioma.gd")
 
 signal estado_actualizado(personaje: Personaje)
 
@@ -118,7 +119,7 @@ var en_exterior := false
 var durmiendo := false
 var corriendo := false
 var laburando := false
-var estado_alerta: String = "Óptimo"
+var estado_alerta: String = Idioma.t("Óptimo")
 
 # Point and click (base.gd asigna la navegación)
 var navegacion: Navegacion
@@ -289,7 +290,7 @@ func _physics_process(delta: float) -> void:
 					_volviendo_a_evento = false
 					detener()
 					set_laburando(true)
-					mostrar_cartel("De vuelta al trabajo")
+					mostrar_cartel(Idioma.t("De vuelta al trabajo"))
 					return
 				if yendo_a_evento:
 					yendo_a_evento = false
@@ -478,7 +479,7 @@ func ir_a(destino_global: Vector2) -> void:
 	_soltar_maquina()
 	orden = Orden.MOVER
 	if not _calcular_camino(destino_global):
-		mostrar_cartel("Sin camino")
+		mostrar_cartel(Idioma.t("Sin camino"))
 		detener()
 
 ## Va hasta la máquina y se queda trabajando alrededor de ella.
@@ -490,7 +491,7 @@ func trabajar_en(m: Maquina) -> void:
 	if _no_responde():
 		return
 	if m.esta_apagada():
-		mostrar_cartel("Apagada: no se puede reparar")
+		mostrar_cartel(Idioma.t("Apagada: no se puede reparar"))
 		return
 	quiere_acostarse = false
 	_terminar_desvio()
@@ -506,7 +507,7 @@ func usar(mueble: Node) -> void:
 		return
 	if en_evento and not evento_fuera and not desmayado and not pausa_evento:
 		pausa_evento = true  # el jugador lo manda a comer en medio del trabajo del evento
-		mostrar_cartel("Pausa para comer")
+		mostrar_cartel(Idioma.t("Pausa para comer"))
 	if _no_responde():
 		return
 	quiere_acostarse = false
@@ -516,14 +517,14 @@ func usar(mueble: Node) -> void:
 	_soltar_maquina()
 	var lugar: Vector2 = mueble.reservar_asiento(self)
 	if lugar == Vector2.INF:
-		mostrar_cartel("No hay lugar")
+		mostrar_cartel(Idioma.t("No hay lugar"))
 		detener()
 		return
 	mueble_actual = mueble
 	orden = Orden.USAR
 	_usando = false
 	if not _calcular_camino(lugar):
-		mostrar_cartel("Sin camino")
+		mostrar_cartel(Idioma.t("Sin camino"))
 		detener()
 
 ## true si está libre para acostarse solo en una cama: sin órdenes ni desvíos.
@@ -571,7 +572,7 @@ func ir_a_evento(destinos: Array[Vector2], motivo: String) -> bool:
 		if _calcular_camino(d):
 			yendo_a_evento = true
 			motivo_evento = motivo
-			mostrar_cartel("Va a: %s" % motivo, 2.0)
+			mostrar_cartel(Idioma.t("Va a: %s") % motivo, 2.0)
 			return true
 	detener()
 	return false
@@ -598,7 +599,7 @@ func iniciar_evento(fuera: bool, motivo: String, _segundos: float) -> void:
 		pausa_evento = false
 		_volviendo_a_evento = false
 		set_laburando(true)
-		mostrar_cartel("Ocupado: %s" % motivo)
+		mostrar_cartel(Idioma.t("Ocupado: %s") % motivo)
 
 ## donde: dónde reaparece si estaba fuera de la base (INF = su punto de inicio).
 func terminar_evento(donde := Vector2.INF) -> void:
@@ -620,7 +621,7 @@ func terminar_evento(donde := Vector2.INF) -> void:
 	evento_fuera = false
 	motivo_evento = ""
 	_quedar_idle()
-	mostrar_cartel("De vuelta")
+	mostrar_cartel(Idioma.t("De vuelta"))
 
 ## true mientras el tiempo de su tarea de evento está frenado (comiendo, durmiendo o volviendo).
 func en_pausa_evento() -> bool:
@@ -636,7 +637,7 @@ func _revisar_pausa_evento(delta: float) -> void:
 		var comedor := _comedor_para_comer()
 		if comedor != null:
 			pausa_evento = true
-			mostrar_cartel("Pausa para comer")
+			mostrar_cartel(Idioma.t("Pausa para comer"))
 			usar(comedor)
 			return
 	if sueno >= umbral_pausa_sueno:
@@ -672,7 +673,7 @@ func _volver_al_evento() -> void:
 func acostarse_en(cama: Node2D) -> void:
 	if en_evento and not evento_fuera and not desmayado:
 		pausa_evento = true
-		mostrar_cartel("Pausa para dormir")
+		mostrar_cartel(Idioma.t("Pausa para dormir"))
 	ir_a(cama.global_position + cama.offset_personaje)
 	quiere_acostarse = true
 
@@ -741,13 +742,13 @@ func _soltar_maquina() -> void:
 
 func _no_responde() -> bool:
 	if desmayado or siendo_llevado:
-		mostrar_cartel("Inconsciente")
+		mostrar_cartel(Idioma.t("Inconsciente"))
 		return true
 	if en_evento and not pausa_evento:
-		mostrar_cartel("Ocupado: %s" % motivo_evento)
+		mostrar_cartel(Idioma.t("Ocupado: %s") % motivo_evento)
 		return true
 	if yendo_a_evento:
-		mostrar_cartel("En camino: %s" % motivo_evento)
+		mostrar_cartel(Idioma.t("En camino: %s") % motivo_evento)
 		return true
 	return false
 
@@ -840,11 +841,11 @@ func _ir_a_puesto_nuevo() -> void:
 	if escritorio != null:
 		var lugar := escritorio.reservar_silla(self)
 		if lugar == Vector2.INF:
-			mostrar_cartel("Silla ocupada")
+			mostrar_cartel(Idioma.t("Silla ocupada"))
 			detener()
 		elif not _calcular_camino(lugar):
 			escritorio.liberar_silla(self)
-			mostrar_cartel("Sin acceso")
+			mostrar_cartel(Idioma.t("Sin acceso"))
 			detener()
 		return
 	var puestos := maquina_actual.puntos_de_trabajo(navegacion)
@@ -856,7 +857,7 @@ func _ir_a_puesto_nuevo() -> void:
 		if _calcular_camino(p):
 			return
 	# Ningún puesto alcanzable sin atravesar un muro: no puede trabajar ahí
-	mostrar_cartel("Sin acceso")
+	mostrar_cartel(Idioma.t("Sin acceso"))
 	detener()
 
 func _proceso_trabajo(delta: float) -> void:
@@ -877,7 +878,7 @@ func _proceso_trabajo(delta: float) -> void:
 
 	velocity = Vector2.ZERO
 	if maquina_actual.esta_apagada():
-		terminar_tarea("Apagada: no se puede reparar")
+		terminar_tarea(Idioma.t("Apagada: no se puede reparar"))
 		return
 	var mult := afinidad("investigacion") if maquina_actual is Escritorio else afinidad("trabajo")
 	if esta_feliz():
@@ -885,7 +886,7 @@ func _proceso_trabajo(delta: float) -> void:
 	maquina_actual.trabajar(delta * mult)
 	# Tarea terminada: la máquina quedó al 100%
 	if maquina_actual.tiene_desgaste and maquina_actual.mantenimiento >= 100.0:
-		terminar_tarea("%s lista" % maquina_actual.nombre_maquina)
+		terminar_tarea(Idioma.t("%s lista") % Idioma.t(maquina_actual.nombre_maquina))
 		return
 	_t_puesto -= delta
 	if _t_puesto <= 0.0 and maquina_actual.escritorio_de_silla() == null:  # en la silla no se mueve
@@ -1015,7 +1016,7 @@ func _rodear(otro: Personaje) -> bool:
 	_intentos_rodear += 1
 	if _intentos_rodear > 3:
 		_intentos_rodear = 0
-		mostrar_cartel("Sin paso")
+		mostrar_cartel(Idioma.t("Sin paso"))
 		if orden == Orden.TRABAJAR:
 			_ir_a_puesto_nuevo()
 		else:
@@ -1187,7 +1188,7 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 	# Fuera de la base por un evento: sus valores quedan como estaban hasta que vuelva
 	if en_evento and evento_fuera:
 		var t := int(maxf(tiempo_evento, 0.0))
-		estado_alerta = "Fuera %d:%02d" % [t / 60, t % 60]
+		estado_alerta = Idioma.t("Fuera %d:%02d") % [t / 60, t % 60]
 		estado_actualizado.emit(self)
 		return
 	# El gasto de comida y energía queda multiplicado por el valor de la tabla (0.8 = gasta
@@ -1223,12 +1224,12 @@ func actualizar_salud(delta: float, oxigeno: float, radiacion: float, lluvia_par
 	var era_feliz := esta_feliz()
 	if sueno <= 0.0 and _sueno_previo > 0.0:
 		_t_descansado = aj.duracion_descansado
-		mostrar_cartel("¡Descansado!")
+		mostrar_cartel(Idioma.t("¡Descansado!"))
 	if hambre <= 0.0 and _hambre_previa > 0.0:
 		_t_satisfecho = aj.duracion_satisfecho
-		mostrar_cartel("¡Satisfecho!")
+		mostrar_cartel(Idioma.t("¡Satisfecho!"))
 	if esta_feliz() and not era_feliz:
-		mostrar_cartel("¡Feliz! Trabaja más rápido", 2.0)
+		mostrar_cartel(Idioma.t("¡Feliz! Trabaja más rápido"), 2.0)
 	_sueno_previo = sueno
 	_hambre_previa = hambre
 
@@ -1323,7 +1324,7 @@ func _desmayar(por_sueno := false) -> void:
 	_pausar_animaciones()
 	if not en_cama:
 		rotation = -PI / 2.0  # queda tirado en el piso
-	mostrar_cartel("¡Se quedó dormido!" if por_sueno else "¡Inconsciente!")
+	mostrar_cartel(Idioma.t("¡Se quedó dormido!") if por_sueno else Idioma.t("¡Inconsciente!"))
 
 func _despertar() -> void:
 	desmayado = false
@@ -1332,10 +1333,10 @@ func _despertar() -> void:
 	_actualizar_animaciones(true)  # vuelve a animarse
 	if not en_cama and not siendo_llevado:
 		rotation = 0.0
-	mostrar_cartel("¡Puede moverse!", 2.5)
+	mostrar_cartel(Idioma.t("¡Puede moverse!"), 2.5)
 	var r := Recursos.de(self)
 	if r != null:
-		r.avisar("%s recuperó la conciencia y puede moverse" % obtener_nombre(), 0, self)
+		r.avisar(Idioma.t("%s recuperó la conciencia y puede moverse") % obtener_nombre(), 0, self)
 
 func comer(cantidad: float = 40.0, bonus_calidad: float = 0.0) -> void:
 	hambre = maxf(0.0, hambre - cantidad)
@@ -1353,39 +1354,39 @@ func obtener_nombre() -> String:
 func _actualizar_alerta(oxigeno: float, radiacion: float, lluvia: bool) -> void:
 	if desmayado:
 		var falta := int(ceilf(maxf(Ajustes.actual().tiempo_inconsciente - _t_inconsciente, 0.0)))
-		estado_alerta = ("Dormido (agotado) %ds" if dormido_agotado else "Inconsciente %ds") % falta
+		estado_alerta = (Idioma.t("Dormido (agotado) %ds") if dormido_agotado else Idioma.t("Inconsciente %ds")) % falta
 	elif en_evento:
 		var t := int(maxf(tiempo_evento, 0.0))
-		estado_alerta = ("Pausa %d:%02d" if en_pausa_evento() else "Ocupado %d:%02d") % [t / 60, t % 60]
+		estado_alerta = (Idioma.t("Pausa %d:%02d") if en_pausa_evento() else Idioma.t("Ocupado %d:%02d")) % [t / 60, t % 60]
 	elif lluvia and en_exterior:
-		estado_alerta = "¡Partículas!"
+		estado_alerta = Idioma.t("¡Partículas!")
 	elif oxigeno < 20.0:
-		estado_alerta = "¡Sin O2!"
+		estado_alerta = Idioma.t("¡Sin O2!")
 	elif radiacion > 80.0:
-		estado_alerta = "¡Radiación!"
+		estado_alerta = Idioma.t("¡Radiación!")
 	elif hambre >= 100.0:
-		estado_alerta = "¡Sin comida!"
+		estado_alerta = Idioma.t("¡Sin comida!")
 	elif hambre > 70.0:
-		estado_alerta = "Hambre"
+		estado_alerta = Idioma.t("Hambre")
 	elif sueno > 75.0:
-		estado_alerta = "Sueño"
+		estado_alerta = Idioma.t("Sueño")
 	elif en_cama and durmiendo:
-		estado_alerta = "Descansando"
+		estado_alerta = Idioma.t("Descansando")
 	elif orden == Orden.TRABAJAR:
 		if _en_puesto and maquina_actual != null and maquina_actual.en_equipo():
-			estado_alerta = "¡Trabajo en Equipo!"
+			estado_alerta = Idioma.t("¡Trabajo en Equipo!")
 		else:
-			estado_alerta = "Trabajando (feliz)" if esta_feliz() else "Trabajando"
+			estado_alerta = Idioma.t("Trabajando (feliz)") if esta_feliz() else Idioma.t("Trabajando")
 	elif orden == Orden.USAR and _usando:
-		estado_alerta = "Comiendo"
+		estado_alerta = Idioma.t("Comiendo")
 	elif esta_feliz():
-		estado_alerta = "Feliz"
+		estado_alerta = Idioma.t("Feliz")
 	elif esta_descansado():
-		estado_alerta = "Descansado"
+		estado_alerta = Idioma.t("Descansado")
 	elif esta_satisfecho():
-		estado_alerta = "Satisfecho"
+		estado_alerta = Idioma.t("Satisfecho")
 	else:
-		estado_alerta = "Bien"
+		estado_alerta = Idioma.t("Bien")
 
 # --- Globos de pensamiento y linterna -----------------------------------------
 
@@ -1586,7 +1587,7 @@ func set_afuera(valor: bool) -> void:
 		sprite_casco.frame = 0
 		_tween_casco.tween_interval(0.2)
 		_tween_casco.tween_callback(func(): sprite_casco.frame = 1)
-		mostrar_cartel("Casco puesto", 1.0)
+		mostrar_cartel(Idioma.t("Casco puesto"), 1.0)
 	else:
 		sprite_casco.frame = 1
 		_tween_casco.tween_interval(0.2)

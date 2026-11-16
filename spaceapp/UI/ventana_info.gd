@@ -1,4 +1,5 @@
 extends Control
+const Idioma := preload("res://Base/idioma.gd")
 ## Ventana de Información (botón junto a pausa/play). Tiene dos carpetas:
 ## - Base: a la izquierda "Máquinas", "Mecánicas" y "Astronautas"; a la derecha una grilla con
 ##   el dibujo de cada uno (o solo el nombre). Al tocar uno se ve su explicación; los astronautas
@@ -90,15 +91,15 @@ func _ready() -> void:
 	var cabecera := HBoxContainer.new()
 	cabecera.add_theme_constant_override("separation", 8)
 	vbox.add_child(cabecera)
-	_titulo = _label("Información", 18, Color(0.6, 0.9, 1.0))
+	_titulo = _label(Idioma.t("Información"), 18, Color(0.6, 0.9, 1.0))
 	_titulo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cabecera.add_child(_titulo)
-	_boton_volver = _boton("Volver", Vector2(90, 30))
+	_boton_volver = _boton(Idioma.t("Volver"), Vector2(90, 30))
 	_boton_volver.pressed.connect(func():
 		if _al_volver.is_valid():
 			_al_volver.call())
 	cabecera.add_child(_boton_volver)
-	var cerrar := _boton("Cerrar", Vector2(90, 30))
+	var cerrar := _boton(Idioma.t("Cerrar"), Vector2(90, 30))
 	cerrar.pressed.connect(queue_free)
 	cabecera.add_child(cerrar)
 	vbox.add_child(HSeparator.new())
@@ -173,7 +174,7 @@ func _empezar_intro() -> void:
 
 	# "Cargando..." en la pantalla, cuando ya está cerca
 	_lbl_cargando = Label.new()
-	_lbl_cargando.text = "Cargando"
+	_lbl_cargando.text = Idioma.t("Cargando")
 	_lbl_cargando.add_theme_font_size_override("font_size", 28)
 	_lbl_cargando.add_theme_color_override("font_color", Color(0.2, 1.0, 0.3))
 	_lbl_cargando.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -191,7 +192,7 @@ func _actualizar_intro() -> void:
 	_t_intro = (Time.get_ticks_msec() - _inicio_ms) / 1000.0
 	if _t_intro >= 0.7 + DURACION_ZOOM * 0.85:
 		_lbl_cargando.visible = true
-		_lbl_cargando.text = "Cargando" + ".".repeat(1 + int(_t_intro * 3.0) % 3)
+		_lbl_cargando.text = Idioma.t("Cargando") + ".".repeat(1 + int(_t_intro * 3.0) % 3)
 	if _t_intro >= DURACION_INTRO:
 		_terminar_intro()
 
@@ -241,15 +242,15 @@ func _limpiar(titulo: String, al_volver: Callable) -> void:
 
 
 func _mostrar_carpetas() -> void:
-	_limpiar("Diario global" if _es_global() else "Información", Callable())
+	_limpiar(Idioma.t("Diario global") if _es_global() else Idioma.t("Información"), Callable())
 	var centro := CenterContainer.new()
 	_cuerpo.add_child(centro)
 	var fila := HBoxContainer.new()
 	fila.add_theme_constant_override("separation", 60)
 	centro.add_child(fila)
-	for datos in [["Base", "Máquinas y mecánicas", _mostrar_base.bind("maquinas")],
-			["Diario", "Investigaciones completadas en partidas ganadas" if _es_global()
-					else "Investigaciones de la misión", _mostrar_diario.bind(-1)]]:
+	for datos in [[Idioma.t("Base"), Idioma.t("Máquinas y mecánicas"), _mostrar_base.bind("maquinas")],
+			[Idioma.t("Diario"), Idioma.t("Investigaciones completadas en partidas ganadas") if _es_global()
+					else Idioma.t("Investigaciones de la misión"), _mostrar_diario.bind(-1)]]:
 		var b := _boton(datos[0], Vector2(230, 190))
 		b.icon = _icono_carpeta()
 		b.expand_icon = true
@@ -287,11 +288,11 @@ func _dos_columnas() -> Array:
 
 
 func _mostrar_base(seccion: String) -> void:
-	_limpiar("Base", _mostrar_carpetas)
+	_limpiar(Idioma.t("Base"), _mostrar_carpetas)
 	var cols := _dos_columnas()
 	var izq: VBoxContainer = cols[0]
 	var der: PanelContainer = cols[1]
-	for datos in [["maquinas", "Máquinas"], ["mecanicas", "Mecánicas"], ["astronautas", "Astronautas"]]:
+	for datos in [["maquinas", Idioma.t("Máquinas")], ["mecanicas", Idioma.t("Mecánicas")], ["astronautas", Idioma.t("Astronautas")]]:
 		var b := _boton(datos[1], Vector2(0, 54))
 		b.add_theme_font_size_override("font_size", 16)
 		b.toggle_mode = true
@@ -329,7 +330,7 @@ func _mostrar_base(seccion: String) -> void:
 
 
 func _mostrar_detalle(item: Dictionary, seccion: String) -> void:
-	_limpiar("Base · " + String(item["titulo"]), _mostrar_base.bind(seccion))
+	_limpiar(Idioma.t("Base · %s") % Idioma.t(String(item["titulo"])), _mostrar_base.bind(seccion))
 	# Con scroll por si el texto es largo (por ejemplo, la historia de un astronauta)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -357,29 +358,29 @@ func _mostrar_detalle(item: Dictionary, seccion: String) -> void:
 	texto.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(texto)
 	if item.has("dato"):
-		var dato := _label("Dato curioso: " + String(item["dato"]), 14, Color(0.6, 0.85, 1.0))
+		var dato := _label(Idioma.t("Dato curioso: ") + Idioma.t(String(item["dato"])), 14, Color(0.6, 0.85, 1.0))
 		dato.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(dato)
 	if item.has("bonos"):
 		var bonos: PackedStringArray = item["bonos"]
 		var penalidades: PackedStringArray = item["penalidades"]
 		if bonos.is_empty() and penalidades.is_empty():
-			vbox.add_child(_parrafo("Estadísticamente neutral: sin bonos ni penalidades.", Color(0.85, 0.87, 0.92)))
+			vbox.add_child(_parrafo(Idioma.t("Estadísticamente neutral: sin bonos ni penalidades."), Color(0.85, 0.87, 0.92)))
 		else:
-			vbox.add_child(_parrafo("Bonos: " + (", ".join(bonos) if not bonos.is_empty() else "ninguno"),
+			vbox.add_child(_parrafo(Idioma.t("Bonos: ") + (", ".join(bonos) if not bonos.is_empty() else Idioma.t("ninguno")),
 					Color(0.55, 1.0, 0.6)))
-			vbox.add_child(_parrafo("Penalidades: " + (", ".join(penalidades) if not penalidades.is_empty() else "ninguna"),
+			vbox.add_child(_parrafo(Idioma.t("Penalidades: ") + (", ".join(penalidades) if not penalidades.is_empty() else Idioma.t("ninguna")),
 					Color(1.0, 0.6, 0.55)))
 	if item.has("fuente"):
-		var fuente := _label("Fuente: " + String(item["fuente"]), 11, Color(0.65, 0.68, 0.75))
+		var fuente := _label(Idioma.t("Fuente: ") + Idioma.t(String(item["fuente"])), 11, Color(0.65, 0.68, 0.75))
 		fuente.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(fuente)
 
 
 func _mostrar_diario(seleccion: int) -> void:
-	_limpiar("Diario global" if _es_global() else "Diario", _mostrar_carpetas)
+	_limpiar(Idioma.t("Diario global") if _es_global() else Idioma.t("Diario"), _mostrar_carpetas)
 	if diario == null or diario.misiones.is_empty():
-		_cuerpo.add_child(_label("El diario está vacío.", 15, Color.WHITE))
+		_cuerpo.add_child(_label(Idioma.t("El diario está vacío."), 15, Color.WHITE))
 		return
 	if seleccion < 0:
 		# Al abrir, la que se está investigando (o la primera)
@@ -402,7 +403,7 @@ func _mostrar_diario(seleccion: int) -> void:
 		lista.add_theme_constant_override("separation", 8)
 		scroll_izq.add_child(lista)
 	if _es_global():
-		var resumen := _label("%d de %d investigaciones · %d partidas ganadas" % [
+		var resumen := _label(Idioma.t("%d de %d investigaciones · %d partidas ganadas") % [
 				diario.cantidad_desbloqueadas(), diario.misiones.size(), int(diario.partidas_ganadas)], 12,
 				Color(1.0, 0.85, 0.45))
 		resumen.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -431,9 +432,9 @@ func _mostrar_diario(seleccion: int) -> void:
 		var t := _label("???", 28, Color(0.7, 0.72, 0.8))
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(t)
-		var txt := "Todavía no se desbloqueó. Salí a explorar con el rover: al volver de cada exploración, su investigación aparece en el diario."
+		var txt := Idioma.t("Todavía no se desbloqueó. Salí a explorar con el rover: al volver de cada exploración, su investigación aparece en el diario.")
 		if _es_global():
-			txt = "Todavía no la completaste en ninguna partida ganada. ¡Ganá una partida con esta misión para guardarla en el diario!"
+			txt = Idioma.t("Todavía no la completaste en ninguna partida ganada. ¡Ganá una partida con esta misión para guardarla en el diario!")
 		vbox.add_child(_parrafo(txt, Color(0.85, 0.87, 0.92)))
 		return
 	vbox.add_child(_label(String(m["titulo"]), 20, Color(0.6, 0.9, 1.0)))
@@ -468,14 +469,14 @@ func _mostrar_diario(seleccion: int) -> void:
 		if i < visibles:
 			vbox.add_child(_parrafo(String(parrafos[i]), Color.WHITE))
 		else:
-			vbox.add_child(_parrafo("· · · (seguí investigando para descubrirlo)", Color(0.55, 0.58, 0.65)))
+			vbox.add_child(_parrafo(Idioma.t("· · · (seguí investigando para descubrirlo)"), Color(0.55, 0.58, 0.65)))
 	if diario.esta_completa(m):
 		_agregar_reporte(vbox, m)
 
 
 func _agregar_reporte(vbox: VBoxContainer, m: Dictionary) -> void:
 	vbox.add_child(HSeparator.new())
-	vbox.add_child(_label("Reporte", 17, Color(0.6, 0.9, 1.0)))
+	vbox.add_child(_label(Idioma.t("Reporte"), 17, Color(0.6, 0.9, 1.0)))
 	if not m.has("respuestas"):
 		m["respuestas"] = {}
 	var respuestas: Dictionary = m["respuestas"]
@@ -503,7 +504,7 @@ func _agregar_reporte(vbox: VBoxContainer, m: Dictionary) -> void:
 			vbox.add_child(b)
 		if elegida >= 0:
 			var ok := elegida == correcta
-			vbox.add_child(_label("¡Correcto!" if ok else "Casi: la respuesta correcta está en verde.", 12,
+			vbox.add_child(_label(Idioma.t("¡Correcto!") if ok else Idioma.t("Casi: la respuesta correcta está en verde."), 12,
 					Color(0.55, 1.0, 0.6) if ok else Color(1.0, 0.7, 0.5)))
 
 
@@ -637,26 +638,26 @@ func _texto_lista(m: Dictionary) -> String:
 	if _es_global():
 		return String(m["titulo"])
 	if diario.esta_completa(m):
-		return "%s\n(completa)" % String(m["titulo"])
+		return Idioma.t("%s\n(completa)") % String(m["titulo"])
 	if diario.activa() == m:
-		return "%s\n(investigando %d%%)" % [String(m["titulo"]), roundi(100.0 * diario.fraccion(m))]
-	return "%s\n(en espera)" % String(m["titulo"])
+		return Idioma.t("%s\n(investigando %d%%)") % [String(m["titulo"]), roundi(100.0 * diario.fraccion(m))]
+	return Idioma.t("%s\n(en espera)") % String(m["titulo"])
 
 
 func _texto_estado(m: Dictionary) -> String:
 	if _es_global():
-		return "Completada en una partida ganada."
+		return Idioma.t("Completada en una partida ganada.")
 	if diario.esta_completa(m):
 		if diario.has_method("reporte_respondido") and diario.reporte_respondido(m):
-			return "Investigación completa y reporte respondido."
-		return "Investigación completa. ¡Respondé el reporte!"
+			return Idioma.t("Investigación completa y reporte respondido.")
+		return Idioma.t("Investigación completa. ¡Respondé el reporte!")
 	if diario.activa() == m:
 		var pct := roundi(100.0 * diario.fraccion(m))
 		if pct == 0:
-			return "Lista para investigar: mandá a un astronauta al escritorio."
-		return "Investigando en el escritorio: %d%%" % pct
+			return Idioma.t("Lista para investigar: mandá a un astronauta al escritorio.")
+		return Idioma.t("Investigando en el escritorio: %d%%") % pct
 	var act: Dictionary = diario.activa()
-	return "En espera: primero se termina \"%s\"." % String(act.get("titulo", ""))
+	return Idioma.t("En espera: primero se termina \"%s\".") % String(act.get("titulo", ""))
 
 
 func _parrafos_visibles(m: Dictionary) -> int:

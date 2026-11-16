@@ -12,7 +12,7 @@ func _ready() -> void:
 func obtener_estado() -> String:
 	var estado := super.obtener_estado()
 	if funcionando():
-		return "%s · comida %d%%" % [estado, roundi(mantenimiento)]
+		return Idioma.t("%s · comida %d%%") % [estado, roundi(mantenimiento)]
 	return estado
 
 

@@ -1,4 +1,5 @@
 extends Node
+const Idioma := preload("res://Base/idioma.gd")
 ## Fin de la partida.
 ## - Victoria: las investigaciones del diario completas y con sus reportes respondidos.
 ##   Se guardan en el diario global (Base/diario_global.gd).
@@ -84,15 +85,15 @@ func _mostrar_aviso(victoria: bool) -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 12)
 	panel.add_child(vbox)
-	var titulo := _label("¡MISIÓN CUMPLIDA!" if victoria else "MISIÓN FALLIDA", 26,
+	var titulo := _label(Idioma.t("¡MISIÓN CUMPLIDA!") if victoria else Idioma.t("MISIÓN FALLIDA"), 26,
 			Color(0.55, 1.0, 0.6) if victoria else Color(1.0, 0.5, 0.45))
 	titulo.add_theme_font_override("font", FUENTE_TITULO)
 	titulo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(titulo)
-	var texto := "¡Completaron todas las investigaciones! Marte ya no tiene tantos secretos." if victoria \
-			else "Toda la tripulación quedó inconsciente. La misión no pudo seguir."
+	var texto := Idioma.t("¡Completaron todas las investigaciones! Marte ya no tiene tantos secretos.") if victoria \
+			else Idioma.t("Toda la tripulación quedó inconsciente. La misión no pudo seguir.")
 	vbox.add_child(_parrafo(texto, 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
-	var b := _boton("Continuar")
+	var b := _boton(Idioma.t("Continuar"))
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
 		fondo.queue_free()
@@ -126,7 +127,7 @@ func _mostrar_resumen(victoria: bool) -> void:
 	vbox.add_theme_constant_override("separation", 10)
 	panel.add_child(vbox)
 
-	var titulo := _label("¡VICTORIA!" if victoria else "DERROTA", 34,
+	var titulo := _label(Idioma.t("¡VICTORIA!") if victoria else Idioma.t("DERROTA"), 34,
 			Color(0.55, 1.0, 0.6) if victoria else Color(1.0, 0.5, 0.45))
 	titulo.add_theme_font_override("font", FUENTE_TITULO)
 	titulo.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -139,7 +140,7 @@ func _mostrar_resumen(victoria: bool) -> void:
 	for p in tripulacion:
 		if is_instance_valid(p):
 			nombres.append(p.obtener_nombre())
-	vbox.add_child(_seccion("Tripulación", ", ".join(nombres)))
+	vbox.add_child(_seccion(Idioma.t("Tripulación"), ", ".join(nombres)))
 
 	# Investigaciones
 	var completas: PackedStringArray = []
@@ -151,34 +152,34 @@ func _mostrar_resumen(victoria: bool) -> void:
 			if m["desbloqueada"]:
 				desbloqueadas += 1
 			if diario.esta_completa(m):
-				completas.append("✔ " + String(m["titulo"]))
-	var titulo_inv := "Investigaciones completadas (%d de %d)" % [completas.size(), total]
-	var detalle := "\n".join(completas) if not completas.is_empty() else "Ninguna"
+				completas.append("- " + String(m["titulo"]))
+	var titulo_inv := Idioma.t("Investigaciones completadas (%d de %d)") % [completas.size(), total]
+	var detalle := "\n".join(completas) if not completas.is_empty() else Idioma.t("Ninguna")
 	if not victoria:
-		detalle += "\nExploraciones hechas: %d de %d" % [desbloqueadas, total]
+		detalle += Idioma.t("\nExploraciones hechas: %d de %d") % [desbloqueadas, total]
 		var activa: Dictionary = diario.activa() if diario != null else {}
 		if not activa.is_empty():
-			detalle += "\nEn curso: %s (%d%%)" % [String(activa["titulo"]), roundi(100.0 * diario.fraccion(activa))]
+			detalle += Idioma.t("\nEn curso: %s (%d%%)") % [String(activa["titulo"]), roundi(100.0 * diario.fraccion(activa))]
 	vbox.add_child(_seccion(titulo_inv, detalle))
 
 	# Tiempo
 	var s := int(_segundos_jugados)
-	var tiempo := "%d:%02d minutos de juego" % [s / 60, s % 60]
+	var tiempo := Idioma.t("%d:%02d minutos de juego") % [s / 60, s % 60]
 	if recursos != null:
 		tiempo = "%s (%s)" % [recursos.texto_reloj(), tiempo]
-	vbox.add_child(_seccion("Tiempo" if victoria else "Hasta dónde llegaron", tiempo))
+	vbox.add_child(_seccion(Idioma.t("Tiempo") if victoria else Idioma.t("Hasta dónde llegaron"), tiempo))
 	if victoria:
-		vbox.add_child(_parrafo("Las investigaciones quedaron guardadas en el diario global (Ver Diario, en el menú).",
+		vbox.add_child(_parrafo(Idioma.t("Las investigaciones quedaron guardadas en el diario global (Ver Diario, en el menú)."),
 				12, Color(0.6, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER))
 
 	var botones := HBoxContainer.new()
 	botones.alignment = BoxContainer.ALIGNMENT_CENTER
 	botones.add_theme_constant_override("separation", 16)
 	vbox.add_child(botones)
-	var menu := _boton("Volver al menú")
+	var menu := _boton(Idioma.t("Volver al menú"))
 	menu.pressed.connect(func(): _cambiar_escena(ESCENA_MENU))
 	botones.add_child(menu)
-	var otra := _boton("Jugar de nuevo")
+	var otra := _boton(Idioma.t("Jugar de nuevo"))
 	otra.pressed.connect(func(): _cambiar_escena(ESCENA_SELECCION))
 	botones.add_child(otra)
 

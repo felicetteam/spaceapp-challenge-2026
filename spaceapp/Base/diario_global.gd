@@ -9,6 +9,7 @@ extends RefCounted
 
 const RUTA_GUARDADO := "user://diario_global.json"
 const RUTA_DATOS := "res://Base/investigaciones.json"
+const Idioma := preload("res://Base/idioma.gd")
 
 ## Todas las investigaciones del juego; "desbloqueada" = completada en alguna partida ganada.
 var misiones: Array[Dictionary] = []
@@ -24,6 +25,7 @@ func _init() -> void:
 	if not FileAccess.file_exists(RUTA_DATOS):
 		return
 	var datos = JSON.parse_string(FileAccess.get_file_as_string(RUTA_DATOS))
+	Idioma.traducir_datos(datos, ["titulo", "texto", "pregunta", "opciones"])  # en el idioma elegido
 	if not (datos is Dictionary) or not (datos.get("investigaciones") is Array):
 		return
 	for inv in datos["investigaciones"]:

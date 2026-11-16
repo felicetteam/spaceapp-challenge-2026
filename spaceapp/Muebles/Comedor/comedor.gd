@@ -1,5 +1,6 @@
 class_name Comedor
 extends Node2D
+const Idioma := preload("res://Base/idioma.gd")
 ## Comedor con asientos. Al sentarse, el astronauta come durante `duracion_comida` segundos,
 ## recupera comida y se levanta. Puede comer como mucho una vez cada `intervalo_comida`
 ## segundos (5 minutos por defecto); si todavía no le toca, se levanta enseguida. Cuánta comida recupera depende
@@ -47,11 +48,11 @@ func empezar_uso(p: Personaje) -> void:
 	if _puede_comer(p):
 		_comiendo[p] = duracion_comida / maxf(Ajustes.actual().velocidad_comer, 0.01)
 		p.set_laburando(true)  # come con la animación de laburo
-		p.mostrar_cartel("Comiendo...")
+		p.mostrar_cartel(Idioma.t("Comiendo..."))
 	else:
 		# Todavía no le toca: se levanta y vuelve al idle
 		var falta := _intervalo() - (Time.get_ticks_msec() - p.ultima_comida_ms) / 1000.0
-		p.terminar_tarea("Próxima comida en %d:%02d" % [int(falta) / 60, int(falta) % 60])
+		p.terminar_tarea(Idioma.t("Próxima comida en %d:%02d") % [int(falta) / 60, int(falta) % 60])
 
 
 func proceso_uso(p: Personaje, delta: float) -> void:
@@ -67,7 +68,7 @@ func proceso_uso(p: Personaje, delta: float) -> void:
 	p.comer(cantidad)
 	p.ultima_comida_ms = Time.get_ticks_msec()
 	# Comida recuperada: se levanta y vuelve al idle
-	p.terminar_tarea("+%d comida" % roundi(cantidad) if cantidad > 0.0 else "Sin comida (invernadero)")
+	p.terminar_tarea(Idioma.t("+%d comida") % roundi(cantidad) if cantidad > 0.0 else Idioma.t("Sin comida (invernadero)"))
 
 
 func terminar_uso(p: Personaje) -> void:
